@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Question } from '@/types'
+import type { UserPlan } from '@/lib/subscription'
 
 interface Attempt {
   question_id: string
@@ -15,6 +16,8 @@ interface Props {
   questions: Question[]
   attempts: Attempt[]
   userId: string
+  userPlan: UserPlan
+  answeredToday: number
 }
 
 const STEPS = ['Todos', 'Step 1', 'Step 2CK', 'Step 3']

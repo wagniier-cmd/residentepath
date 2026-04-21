@@ -13,11 +13,35 @@ export default function LandingPage() {
   const [checkoutStep, setCheckoutStep] = useState(1)
   const [paymentType, setPaymentType] = useState<'card' | 'pix' | 'boleto'>('card')
   const [openFaq, setOpenFaq] = useState<number | null>(null)
+  const [checkoutLoading, setCheckoutLoading] = useState(false)
+  const [checkoutError, setCheckoutError] = useState('')
+  const [formData, setFormData] = useState({ name: '', email: '', cpf: '' })
 
   function openCheckout(name: string, price: number) {
     setCheckoutPlan({ name, price })
     setCheckoutStep(1)
     setCheckoutModal(true)
+    setCheckoutError('')
+    setFormData({ name: '', email: '', cpf: '' })
+  }
+
+  async function handleFinalize() {
+    setCheckoutLoading(true)
+    setCheckoutError('')
+    try {
+      const res = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...formData, plan: checkoutPlan.name }),
+      })
+      const data = await res.json()
+      if (!data.success) throw new Error(data.error ?? 'Erro ao processar')
+      setCheckoutStep(3)
+    } catch (err: unknown) {
+      setCheckoutError(err instanceof Error ? err.message : 'Erro ao processar pagamento')
+    } finally {
+      setCheckoutLoading(false)
+    }
   }
 
   return (
@@ -516,9 +540,9 @@ export default function LandingPage() {
                 <>
                   <h2 style={{fontSize:'18px',marginBottom:'4px',color:'#1E3A5F'}}>Seus dados</h2>
                   <p style={{fontSize:'13px',color:'#64748b',marginBottom:'20px'}}>Crie sua conta para começar os 14 dias grátis.</p>
-                  <div className="lp-form-group"><label className="lp-form-label">Nome completo</label><input className="lp-form-input" type="text" placeholder="Dr. João Silva"/></div>
-                  <div className="lp-form-group"><label className="lp-form-label">Email</label><input className="lp-form-input" type="email" placeholder="seu@email.com"/></div>
-                  <div className="lp-form-group"><label className="lp-form-label">CPF</label><input className="lp-form-input" type="text" placeholder="000.000.000-00"/></div>
+                  <div className="lp-form-group"><label className="lp-form-label">Nome completo</label><input className="lp-form-input" type="text" placeholder="Dr. João Silva" value={formData.name} onChange={e => setFormData(p => ({...p, name: e.target.value}))}/></div>
+                  <div className="lp-form-group"><label className="lp-form-label">Email</label><input className="lp-form-input" type="email" placeholder="seu@email.com" value={formData.email} onChange={e => setFormData(p => ({...p, email: e.target.value}))}/></div>
+                  <div className="lp-form-group"><label className="lp-form-label">CPF</label><input className="lp-form-input" type="text" placeholder="000.000.000-00" value={formData.cpf} onChange={e => setFormData(p => ({...p, cpf: e.target.value}))}/></div>
                   <button className="lp-modal-btn" onClick={() => setCheckoutStep(2)}>Continuar →</button>
                   <div className="lp-co-security">🔒 Dados protegidos com criptografia SSL</div>
                 </>
@@ -540,7 +564,10 @@ export default function LandingPage() {
                       <div className="lp-form-group"><label className="lp-form-label">Nome no cartão</label><input className="lp-form-input" type="text" placeholder="JOÃO SILVA"/></div>
                     </>
                   )}
-                  <button className="lp-modal-btn" onClick={() => setCheckoutStep(3)}>Finalizar assinatura →</button>
+                  {checkoutError && <p style={{color:'#ef4444',fontSize:'13px',marginBottom:'8px'}}>{checkoutError}</p>}
+                  <button className="lp-modal-btn" onClick={handleFinalize} disabled={checkoutLoading}>
+                    {checkoutLoading ? 'Processando...' : 'Finalizar assinatura →'}
+                  </button>
                   <div className="lp-co-security">🔒 Pagamento processado com segurança pela Asaas</div>
                 </>
               )}

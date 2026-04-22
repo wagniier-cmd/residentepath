@@ -34,9 +34,18 @@ export async function updateSession(request: NextRequest) {
 
   const isAuthPage = request.nextUrl.pathname.startsWith('/auth')
   const isDashboard = request.nextUrl.pathname.startsWith('/dashboard')
+  const isAdmin = request.nextUrl.pathname.startsWith('/admin')
 
   if (!user && isDashboard) {
     return NextResponse.redirect(new URL('/auth/login', request.url))
+  }
+
+  if (!user && isAdmin) {
+    return NextResponse.redirect(new URL('/auth/login', request.url))
+  }
+
+  if (user && isAdmin && user.email !== 'wagniier@gmail.com') {
+    return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
   if (user && isAuthPage) {

@@ -32,6 +32,8 @@ export default function QuestionsClient({ questions, attempts: initialAttempts, 
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null)
   const [submitted, setSubmitted] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [flashcardNotif, setFlashcardNotif] = useState<'auto' | 'manual' | null>(null)
+  const [flashcardLoading, setFlashcardLoading] = useState(false)
 
   const subjects = useMemo(() => {
     const s = new Set(questions.map(q => q.subject))
@@ -57,6 +59,7 @@ export default function QuestionsClient({ questions, attempts: initialAttempts, 
   function nextQuestion() {
     setSelectedAnswer(null)
     setSubmitted(false)
+    setFlashcardNotif(null)
     if (currentIndex < filtered.length - 1) {
       setCurrentIndex(i => i + 1)
     }
@@ -65,8 +68,43 @@ export default function QuestionsClient({ questions, attempts: initialAttempts, 
   function prevQuestion() {
     setSelectedAnswer(null)
     setSubmitted(false)
+    setFlashcardNotif(null)
     if (currentIndex > 0) {
       setCurrentIndex(i => i - 1)
+    }
+  }
+
+  async function generateAndSaveFlashcard(mode: 'auto' | 'manual') {
+    if (!question) return
+    setFlashcardLoading(true)
+    setFlashcardNotif(null)
+    try {
+      const text = mode === 'auto'
+        ? question.explanation
+        : `${question.stem}\n\nExplicação: ${question.explanation}`
+
+      const res = await fetch('/api/generate-flashcards', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, subject: question.subject, count: 1 }),
+      })
+      const data = await res.json()
+      if (!data.success || !data.flashcards?.[0]) throw new Error(data.error)
+
+      const fc = data.flashcards[0]
+      const supabase = createClient()
+      await supabase.from('flashcards').insert({
+        front: fc.front,
+        back: fc.back,
+        subject: question.subject,
+        created_by: userId,
+      })
+      setFlashcardNotif(mode)
+      setTimeout(() => setFlashcardNotif(null), 4000)
+    } catch {
+      // silently fail — non-critical feature
+    } finally {
+      setFlashcardLoading(false)
     }
   }
 
@@ -92,6 +130,10 @@ export default function QuestionsClient({ questions, attempts: initialAttempts, 
     }
     setSubmitted(true)
     setLoading(false)
+
+    if (!is_correct) {
+      generateAndSaveFlashcard('auto')
+    }
   }
 
   const options: { key: 'A' | 'B' | 'C' | 'D' | 'E'; text: string }[] = question
@@ -205,6 +247,33 @@ export default function QuestionsClient({ questions, attempts: initialAttempts, 
                 </span>
               </div>
               <p className="text-sm text-foreground leading-relaxed">{question.explanation}</p>
+
+              <div className="mt-4 flex items-center justify-between gap-3 flex-wrap">
+                <button
+                  onClick={() => generateAndSaveFlashcard('manual')}
+                  disabled={flashcardLoading}
+                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-primary-200 text-primary-700 bg-white hover:bg-primary-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {flashcardLoading ? (
+                    <svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                  ) : '➕'}
+                  Criar flashcard desta questão
+                </button>
+
+                {flashcardNotif === 'auto' && (
+                  <span className="text-xs text-primary-700 bg-primary-50 px-3 py-1.5 rounded-lg border border-primary-200 animate-fade-in">
+                    📚 Flashcard criado automaticamente para revisão
+                  </span>
+                )}
+                {flashcardNotif === 'manual' && (
+                  <span className="text-xs text-correct bg-correct-light px-3 py-1.5 rounded-lg border border-correct/20 animate-fade-in">
+                    ✅ Flashcard salvo!
+                  </span>
+                )}
+              </div>
             </div>
           )}
 

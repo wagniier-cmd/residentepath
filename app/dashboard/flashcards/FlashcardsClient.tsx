@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { calculateSM2, isDueForReview, getInitialSM2 } from '@/lib/sm2'
 import type { Flashcard, FlashcardRating } from '@/types'
@@ -22,6 +23,7 @@ interface Props {
 type Mode = 'browse' | 'review'
 
 export default function FlashcardsClient({ flashcards, userStates: initialStates, userId }: Props) {
+  const router = useRouter()
   const [userStates, setUserStates] = useState<UserState[]>(initialStates)
   const [mode, setMode] = useState<Mode>('browse')
   const [flipped, setFlipped] = useState(false)
@@ -230,18 +232,26 @@ export default function FlashcardsClient({ flashcards, userStates: initialStates
             {flashcards.length} cards no total · {dueCards.length} para revisar hoje
           </p>
         </div>
-        {dueCards.length > 0 && (
+        <div className="flex items-center gap-3 flex-wrap">
           <button
-            onClick={startReview}
-            className="flex items-center gap-2 px-5 py-2.5 bg-primary-700 text-white rounded-xl text-sm font-medium hover:bg-primary-800 transition-colors"
+            onClick={() => router.push('/dashboard/flashcards/generate')}
+            className="flex items-center gap-2 px-5 py-2.5 bg-white border border-border text-primary-700 rounded-xl text-sm font-medium hover:bg-primary-50 transition-colors"
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            Iniciar revisão ({dueCards.length})
+            ✨ Gerar com IA
           </button>
-        )}
+          {dueCards.length > 0 && (
+            <button
+              onClick={startReview}
+              className="flex items-center gap-2 px-5 py-2.5 bg-primary-700 text-white rounded-xl text-sm font-medium hover:bg-primary-800 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Iniciar revisão ({dueCards.length})
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Filter */}

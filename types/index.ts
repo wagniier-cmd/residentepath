@@ -31,6 +31,7 @@ export interface UserProfile {
   medical_school: string
   graduation_year: number
   target_match_year: number
+  translation_language: string
   created_at: string
 }
 
@@ -89,6 +90,14 @@ export interface UserFlashcardState {
   last_rating: FlashcardRating | null
 }
 
+export interface WeeklyGoal {
+  questionsGoal: number
+  flashcardsGoal: number
+  questionsThisWeek: number
+  flashcardsThisWeek: number
+  weekStart: string
+}
+
 export interface DashboardStats {
   questionsToday: number
   flashcardsToday: number
@@ -96,6 +105,7 @@ export interface DashboardStats {
   dueFlashcards: number
   subjectProgress: SubjectProgress[]
   weeklyActivity: WeeklyActivity[]
+  weeklyGoal: WeeklyGoal
 }
 
 export interface SubjectProgress {

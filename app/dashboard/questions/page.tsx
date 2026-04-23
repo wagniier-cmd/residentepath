@@ -13,6 +13,7 @@ export default async function QuestionsPage() {
     { data: questions },
     { data: attempts },
     userPlan,
+    { data: profile },
   ] = await Promise.all([
     supabase.from('questions').select('*').order('created_at', { ascending: true }),
     supabase
@@ -20,6 +21,7 @@ export default async function QuestionsPage() {
       .select('question_id, is_correct, selected_answer, answered_at')
       .eq('user_id', user.id),
     getUserPlan(user.id),
+    supabase.from('user_profiles').select('translation_language').eq('id', user.id).single(),
   ])
 
   // Count questions answered today for limited plans
@@ -94,6 +96,7 @@ export default async function QuestionsPage() {
       userId={user.id}
       userPlan={userPlan}
       answeredToday={answeredToday}
+      translationLanguage={profile?.translation_language ?? 'pt'}
     />
   )
 }

@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { useTranslate } from '@/lib/useTranslate'
 import type { Question } from '@/types'
 import type { UserPlan } from '@/lib/subscription'
 
@@ -18,12 +19,15 @@ interface Props {
   userId: string
   userPlan: UserPlan
   answeredToday: number
+  translationLanguage?: string
 }
 
 const STEPS = ['Todos', 'Step 1', 'Step 2CK', 'Step 3']
 const DIFFICULTIES = ['Todas', 'Fácil', 'Médio', 'Difícil']
+const LANG_FLAG: Record<string, string> = { pt: '🇧🇷', es: '🇪🇸' }
+const LANG_LABEL: Record<string, string> = { pt: 'Português', es: 'Español' }
 
-export default function QuestionsClient({ questions, attempts: initialAttempts, userId }: Props) {
+export default function QuestionsClient({ questions, attempts: initialAttempts, userId, translationLanguage = 'pt' }: Props) {
   const [attempts, setAttempts] = useState<Attempt[]>(initialAttempts)
   const [filterStep, setFilterStep] = useState('Todos')
   const [filterDifficulty, setFilterDifficulty] = useState('Todas')
@@ -34,6 +38,13 @@ export default function QuestionsClient({ questions, attempts: initialAttempts, 
   const [loading, setLoading] = useState(false)
   const [flashcardNotif, setFlashcardNotif] = useState<'auto' | 'manual' | null>(null)
   const [flashcardLoading, setFlashcardLoading] = useState(false)
+  const [noteText, setNoteText] = useState('')
+  const [noteSaving, setNoteSaving] = useState(false)
+  const [noteSaved, setNoteSaved] = useState(false)
+  const noteSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lastNoteQuestionId = useRef<string | null>(null)
+
+  const { translate, translations, loading: tlLoading, visible, reset: resetTranslations } = useTranslate(translationLanguage)
 
   const subjects = useMemo(() => {
     const s = new Set(questions.map(q => q.subject))
@@ -54,24 +65,20 @@ export default function QuestionsClient({ questions, attempts: initialAttempts, 
   const totalAnswered = attempts.length
   const totalCorrect = attempts.filter(a => a.is_correct).length
 
-  const previousAttempt = question ? attempts.find(a => a.question_id === question.id) : null
-
   function nextQuestion() {
     setSelectedAnswer(null)
     setSubmitted(false)
     setFlashcardNotif(null)
-    if (currentIndex < filtered.length - 1) {
-      setCurrentIndex(i => i + 1)
-    }
+    resetTranslations()
+    if (currentIndex < filtered.length - 1) setCurrentIndex(i => i + 1)
   }
 
   function prevQuestion() {
     setSelectedAnswer(null)
     setSubmitted(false)
     setFlashcardNotif(null)
-    if (currentIndex > 0) {
-      setCurrentIndex(i => i - 1)
-    }
+    resetTranslations()
+    if (currentIndex > 0) setCurrentIndex(i => i - 1)
   }
 
   async function generateAndSaveFlashcard(mode: 'auto' | 'manual') {
@@ -82,7 +89,6 @@ export default function QuestionsClient({ questions, attempts: initialAttempts, 
       const text = mode === 'auto'
         ? question.explanation
         : `${question.stem}\n\nExplicação: ${question.explanation}`
-
       const res = await fetch('/api/generate-flashcards', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -90,19 +96,13 @@ export default function QuestionsClient({ questions, attempts: initialAttempts, 
       })
       const data = await res.json()
       if (!data.success || !data.flashcards?.[0]) throw new Error(data.error)
-
       const fc = data.flashcards[0]
       const supabase = createClient()
-      await supabase.from('flashcards').insert({
-        front: fc.front,
-        back: fc.back,
-        subject: question.subject,
-        created_by: userId,
-      })
+      await supabase.from('flashcards').insert({ front: fc.front, back: fc.back, subject: question.subject, created_by: userId })
       setFlashcardNotif(mode)
       setTimeout(() => setFlashcardNotif(null), 4000)
     } catch {
-      // silently fail — non-critical feature
+      // silently fail
     } finally {
       setFlashcardLoading(false)
     }
@@ -112,28 +112,40 @@ export default function QuestionsClient({ questions, attempts: initialAttempts, 
     if (!selectedAnswer || !question) return
     setLoading(true)
     const is_correct = selectedAnswer === question.correct_answer
-
     const supabase = createClient()
     const { data } = await supabase
       .from('user_question_attempts')
-      .insert({
-        user_id: userId,
-        question_id: question.id,
-        selected_answer: selectedAnswer,
-        is_correct,
-      })
-      .select()
-      .single()
-
-    if (data) {
-      setAttempts(prev => [...prev.filter(a => a.question_id !== question.id), data])
-    }
+      .insert({ user_id: userId, question_id: question.id, selected_answer: selectedAnswer, is_correct })
+      .select().single()
+    if (data) setAttempts(prev => [...prev.filter(a => a.question_id !== question.id), data])
     setSubmitted(true)
     setLoading(false)
+    if (!is_correct) generateAndSaveFlashcard('auto')
+  }
 
-    if (!is_correct) {
-      generateAndSaveFlashcard('auto')
-    }
+  useEffect(() => {
+    if (!question) return
+    if (question.id === lastNoteQuestionId.current) return
+    lastNoteQuestionId.current = question.id
+    setNoteText('')
+    setNoteSaved(false)
+    fetch(`/api/notes?question_id=${question.id}`)
+      .then(r => r.json()).then(d => setNoteText(d.note ?? '')).catch(() => {})
+  }, [question?.id])
+
+  async function handleSaveNote() {
+    if (!question) return
+    setNoteSaving(true)
+    setNoteSaved(false)
+    await fetch('/api/notes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question_id: question.id, note: noteText }),
+    })
+    setNoteSaving(false)
+    setNoteSaved(true)
+    if (noteSaveTimer.current) clearTimeout(noteSaveTimer.current)
+    noteSaveTimer.current = setTimeout(() => setNoteSaved(false), 3000)
   }
 
   const options: { key: 'A' | 'B' | 'C' | 'D' | 'E'; text: string }[] = question
@@ -149,11 +161,21 @@ export default function QuestionsClient({ questions, attempts: initialAttempts, 
   function getOptionStyle(key: string) {
     if (!submitted && selectedAnswer !== key) return 'border-border hover:border-primary/40 hover:bg-primary-50/30'
     if (!submitted && selectedAnswer === key) return 'border-primary-700 bg-primary-50'
-    // submitted
     if (key === question?.correct_answer) return 'border-correct bg-correct-light text-correct'
     if (key === selectedAnswer && key !== question?.correct_answer) return 'border-incorrect bg-incorrect-light text-incorrect'
     return 'border-border opacity-50'
   }
+
+  const flag = LANG_FLAG[translationLanguage] ?? '🌐'
+  const langLabel = LANG_LABEL[translationLanguage] ?? translationLanguage
+
+  // Build a combined key for stem+options translation
+  const stemKey = question ? `stem-${question.id}` : ''
+  const explanationKey = question ? `explanation-${question.id}` : ''
+
+  const stemForTranslation = question
+    ? `${question.stem}\n\nA. ${question.option_a}\nB. ${question.option_b}\nC. ${question.option_c}\nD. ${question.option_d}\nE. ${question.option_e}`
+    : ''
 
   return (
     <div className="animate-fade-in">
@@ -166,9 +188,9 @@ export default function QuestionsClient({ questions, attempts: initialAttempts, 
 
       {/* Filters */}
       <div className="bg-white rounded-2xl border border-border p-4 mb-6 flex flex-wrap gap-3">
-        <FilterSelect label="Step" value={filterStep} options={STEPS} onChange={v => { setFilterStep(v); setCurrentIndex(0); setSelectedAnswer(null); setSubmitted(false) }} />
-        <FilterSelect label="Dificuldade" value={filterDifficulty} options={DIFFICULTIES} onChange={v => { setFilterDifficulty(v); setCurrentIndex(0); setSelectedAnswer(null); setSubmitted(false) }} />
-        <FilterSelect label="Especialidade" value={filterSubject} options={subjects} onChange={v => { setFilterSubject(v); setCurrentIndex(0); setSelectedAnswer(null); setSubmitted(false) }} />
+        <FilterSelect label="Step" value={filterStep} options={STEPS} onChange={v => { setFilterStep(v); setCurrentIndex(0); setSelectedAnswer(null); setSubmitted(false); resetTranslations() }} />
+        <FilterSelect label="Dificuldade" value={filterDifficulty} options={DIFFICULTIES} onChange={v => { setFilterDifficulty(v); setCurrentIndex(0); setSelectedAnswer(null); setSubmitted(false); resetTranslations() }} />
+        <FilterSelect label="Especialidade" value={filterSubject} options={subjects} onChange={v => { setFilterSubject(v); setCurrentIndex(0); setSelectedAnswer(null); setSubmitted(false); resetTranslations() }} />
         <div className="ml-auto text-sm text-muted-foreground self-center">
           {filtered.length} questão{filtered.length !== 1 ? 'ões' : ''} encontrada{filtered.length !== 1 ? 's' : ''}
         </div>
@@ -203,8 +225,28 @@ export default function QuestionsClient({ questions, attempts: initialAttempts, 
           </div>
 
           {/* Question stem */}
-          <div className="px-6 py-6">
+          <div className="px-6 pt-6 pb-2">
             <p className="text-foreground leading-relaxed text-base">{question.stem}</p>
+          </div>
+
+          {/* Stem translation block */}
+          {visible[stemKey] && (
+            <div className="mx-6 mb-2 p-4 rounded-xl bg-blue-50 border border-blue-100">
+              <p className="text-xs font-semibold text-blue-600 mb-2">{flag} Tradução — {langLabel}</p>
+              {tlLoading[stemKey]
+                ? <p className="text-sm text-muted-foreground animate-pulse">Traduzindo...</p>
+                : <p className="text-sm text-foreground leading-relaxed whitespace-pre-line">{translations[stemKey]}</p>
+              }
+            </div>
+          )}
+
+          {/* Translate stem+options button */}
+          <div className="px-6 pb-4">
+            <TranslateButton
+              flag={flag} langLabel={langLabel}
+              isVisible={!!visible[stemKey]} isLoading={!!tlLoading[stemKey]}
+              onClick={() => translate(stemKey, stemForTranslation)}
+            />
           </div>
 
           {/* Options */}
@@ -234,7 +276,7 @@ export default function QuestionsClient({ questions, attempts: initialAttempts, 
 
           {/* Explanation */}
           {submitted && (
-            <div className={`mx-6 mb-6 p-5 rounded-xl border-2 ${
+            <div className={`mx-6 mb-4 p-5 rounded-xl border-2 ${
               selectedAnswer === question.correct_answer
                 ? 'bg-correct-light border-correct/30'
                 : 'bg-incorrect-light border-incorrect/30'
@@ -247,6 +289,26 @@ export default function QuestionsClient({ questions, attempts: initialAttempts, 
                 </span>
               </div>
               <p className="text-sm text-foreground leading-relaxed">{question.explanation}</p>
+
+              {/* Explanation translation */}
+              {visible[explanationKey] && (
+                <div className="mt-3 p-3 rounded-xl bg-blue-50 border border-blue-100">
+                  <p className="text-xs font-semibold text-blue-600 mb-1.5">{flag} Tradução da explicação — {langLabel}</p>
+                  {tlLoading[explanationKey]
+                    ? <p className="text-xs text-muted-foreground animate-pulse">Traduzindo...</p>
+                    : <p className="text-xs text-foreground leading-relaxed">{translations[explanationKey]}</p>
+                  }
+                </div>
+              )}
+
+              <div className="mt-3">
+                <TranslateButton
+                  flag={flag} langLabel={langLabel}
+                  isVisible={!!visible[explanationKey]} isLoading={!!tlLoading[explanationKey]}
+                  onClick={() => translate(explanationKey, question.explanation)}
+                  label="explicação"
+                />
+              </div>
 
               <div className="mt-4 flex items-center justify-between gap-3 flex-wrap">
                 <button
@@ -262,7 +324,6 @@ export default function QuestionsClient({ questions, attempts: initialAttempts, 
                   ) : '➕'}
                   Criar flashcard desta questão
                 </button>
-
                 {flashcardNotif === 'auto' && (
                   <span className="text-xs text-primary-700 bg-primary-50 px-3 py-1.5 rounded-lg border border-primary-200 animate-fade-in">
                     📚 Flashcard criado automaticamente para revisão
@@ -273,6 +334,30 @@ export default function QuestionsClient({ questions, attempts: initialAttempts, 
                     ✅ Flashcard salvo!
                   </span>
                 )}
+              </div>
+            </div>
+          )}
+
+          {/* Notes */}
+          {submitted && (
+            <div className="mx-6 mb-6 border border-border rounded-xl p-4 bg-gray-50">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">📝 Minhas anotações</p>
+              <textarea
+                value={noteText}
+                onChange={e => setNoteText(e.target.value)}
+                rows={3}
+                placeholder="Escreva suas anotações sobre esta questão..."
+                className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none transition-all"
+              />
+              <div className="flex items-center gap-3 mt-2">
+                <button
+                  onClick={handleSaveNote}
+                  disabled={noteSaving}
+                  className="px-4 py-1.5 bg-primary-700 text-white rounded-lg text-xs font-medium hover:bg-primary-800 disabled:opacity-40 transition-colors"
+                >
+                  {noteSaving ? 'Salvando...' : 'Salvar nota'}
+                </button>
+                {noteSaved && <span className="text-xs text-correct font-medium animate-fade-in">✓ Nota salva!</span>}
               </div>
             </div>
           )}
@@ -325,13 +410,27 @@ export default function QuestionsClient({ questions, attempts: initialAttempts, 
   )
 }
 
+function TranslateButton({ flag, langLabel, isVisible, isLoading, onClick, label = 'questão' }: {
+  flag: string; langLabel: string; isVisible: boolean; isLoading: boolean; onClick: () => void; label?: string
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={isLoading}
+      className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors disabled:opacity-50"
+    >
+      {isLoading
+        ? <svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+        : <span>{flag}</span>
+      }
+      {isLoading ? 'Traduzindo...' : isVisible ? `Ocultar tradução` : `Traduzir ${label} para ${langLabel}`}
+    </button>
+  )
+}
+
 function Badge({ children, variant = 'default' }: { children: React.ReactNode; variant?: 'default' | 'outline' }) {
   return (
-    <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${
-      variant === 'default'
-        ? 'bg-primary-100 text-primary-700'
-        : 'bg-gray-100 text-gray-600'
-    }`}>
+    <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${variant === 'default' ? 'bg-primary-100 text-primary-700' : 'bg-gray-100 text-gray-600'}`}>
       {children}
     </span>
   )
@@ -354,11 +453,8 @@ function FilterSelect({ label, value, options, onChange }: { label: string; valu
   return (
     <div className="flex items-center gap-2">
       <label className="text-xs text-muted-foreground font-medium">{label}:</label>
-      <select
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        className="text-sm border border-border rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-      >
+      <select value={value} onChange={e => onChange(e.target.value)}
+        className="text-sm border border-border rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all">
         {options.map(o => <option key={o} value={o}>{o}</option>)}
       </select>
     </div>

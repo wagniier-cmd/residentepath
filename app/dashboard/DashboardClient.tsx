@@ -1,15 +1,18 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
+import type { WeeklyGoal } from '@/types'
 import type { DashboardStats, UserProfile } from '@/types'
 
 interface Props {
   profile: UserProfile | null
   stats: DashboardStats
+  userId: string
 }
 
-export default function DashboardClient({ profile, stats }: Props) {
+export default function DashboardClient({ profile, stats, userId }: Props) {
   const firstName = profile?.full_name?.split(' ')[0] || 'Médico'
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite'
@@ -89,6 +92,9 @@ export default function DashboardClient({ profile, stats }: Props) {
         </Link>
       </div>
 
+      {/* Weekly goals */}
+      <WeeklyGoalSection goal={stats.weeklyGoal} userId={userId} />
+
       {/* Charts row */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Weekly activity */}
@@ -144,16 +150,9 @@ export default function DashboardClient({ profile, stats }: Props) {
   )
 }
 
-function StatCard({ label, value, icon, color }: { label: string; value: string | number; icon: string; color: string }) {
-  const colors: Record<string, string> = {
-    blue: 'bg-blue-50 text-blue-700',
-    purple: 'bg-purple-50 text-purple-700',
-    orange: 'bg-orange-50 text-orange-700',
-    red: 'bg-red-50 text-red-700',
-    green: 'bg-green-50 text-green-700',
-  }
+function StatCard({ label, value, icon }: { label: string; value: string | number; icon: string; color?: string }) {
   return (
-    <div className={`rounded-2xl p-4 border border-border bg-white`}>
+    <div className="rounded-2xl p-4 border border-border bg-white">
       <div className="text-2xl mb-2">{icon}</div>
       <p className="text-2xl font-bold text-foreground">{value}</p>
       <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
@@ -165,6 +164,102 @@ function EmptyState({ text }: { text: string }) {
   return (
     <div className="flex flex-col items-center justify-center h-32 text-center">
       <p className="text-muted-foreground text-sm">{text}</p>
+    </div>
+  )
+}
+
+function WeeklyGoalSection({ goal, userId }: { goal: WeeklyGoal; userId: string }) {
+  const [editing, setEditing] = useState(false)
+  const [qGoal, setQGoal] = useState(goal.questionsGoal)
+  const [fGoal, setFGoal] = useState(goal.flashcardsGoal)
+  const [saving, setSaving] = useState(false)
+
+  const qPct = Math.min(100, goal.questionsGoal > 0 ? Math.round((goal.questionsThisWeek / goal.questionsGoal) * 100) : 0)
+  const fPct = Math.min(100, goal.flashcardsGoal > 0 ? Math.round((goal.flashcardsThisWeek / goal.flashcardsGoal) * 100) : 0)
+
+  async function saveGoal() {
+    setSaving(true)
+    await fetch('/api/goals', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ questions_goal: qGoal, flashcards_goal: fGoal, week_start: goal.weekStart, user_id: userId }),
+    })
+    setSaving(false)
+    setEditing(false)
+    // Refresh to show new goals
+    window.location.reload()
+  }
+
+  return (
+    <div className="bg-white rounded-2xl border border-border p-6 mb-8">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-semibold text-primary-700">Meta da semana</h2>
+        <button
+          onClick={() => setEditing(e => !e)}
+          className="text-xs text-muted-foreground hover:text-primary-700 transition-colors border border-border px-3 py-1.5 rounded-lg hover:border-primary/40"
+        >
+          {editing ? 'Cancelar' : '✏️ Editar meta'}
+        </button>
+      </div>
+
+      {editing ? (
+        <div className="space-y-3">
+          <div className="flex items-center gap-4">
+            <label className="text-sm text-foreground w-40">📝 Questões/semana</label>
+            <input
+              type="number" min={1} max={500} value={qGoal}
+              onChange={e => setQGoal(Number(e.target.value))}
+              className="border border-border rounded-lg px-3 py-1.5 text-sm w-24 focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+          </div>
+          <div className="flex items-center gap-4">
+            <label className="text-sm text-foreground w-40">🃏 Flashcards/semana</label>
+            <input
+              type="number" min={1} max={500} value={fGoal}
+              onChange={e => setFGoal(Number(e.target.value))}
+              className="border border-border rounded-lg px-3 py-1.5 text-sm w-24 focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+          </div>
+          <button
+            onClick={saveGoal} disabled={saving}
+            className="px-5 py-2 bg-primary-700 text-white rounded-xl text-sm font-medium hover:bg-primary-800 disabled:opacity-50 transition-colors"
+          >
+            {saving ? 'Salvando...' : 'Salvar meta'}
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <GoalBar
+            icon="📝" label="Questões"
+            current={goal.questionsThisWeek} goal={goal.questionsGoal} pct={qPct}
+          />
+          <GoalBar
+            icon="🃏" label="Flashcards"
+            current={goal.flashcardsThisWeek} goal={goal.flashcardsGoal} pct={fPct}
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
+function GoalBar({ icon, label, current, goal, pct }: { icon: string; label: string; current: number; goal: number; pct: number }) {
+  const done = pct >= 100
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-sm text-foreground">{icon} {label}</span>
+        <span className={`text-xs font-semibold ${done ? 'text-correct' : 'text-muted-foreground'}`}>
+          {done ? '✓ Meta atingida!' : `${current} / ${goal}`}
+        </span>
+      </div>
+      <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
+        <div
+          className={`h-full rounded-full transition-all duration-500 ${done ? 'bg-correct' : pct >= 60 ? 'bg-primary-700' : 'bg-amber-400'}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <p className="text-xs text-muted-foreground mt-1">{pct}% da meta semanal</p>
     </div>
   )
 }

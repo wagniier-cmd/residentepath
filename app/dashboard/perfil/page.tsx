@@ -82,6 +82,7 @@ export default async function PerfilPage() {
         medical_school: '',
         graduation_year: new Date().getFullYear(),
         target_match_year: new Date().getFullYear() + 2,
+        translation_language: 'pt',
       }}
       stats={{
         totalAttempts,

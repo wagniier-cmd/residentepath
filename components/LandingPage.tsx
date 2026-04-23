@@ -3,11 +3,16 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 
 export default function LandingPage() {
   const router = useRouter()
   const [authModal, setAuthModal] = useState(false)
   const [authTab, setAuthTab] = useState<'login' | 'signup'>('login')
+  const [authLoading, setAuthLoading] = useState(false)
+  const [authError, setAuthError] = useState('')
+  const [loginForm, setLoginForm] = useState({ email: '', password: '' })
+  const [signupForm, setSignupForm] = useState({ full_name: '', email: '', password: '' })
   const [checkoutModal, setCheckoutModal] = useState(false)
   const [checkoutPlan, setCheckoutPlan] = useState({ name: '', price: 0 })
   const [checkoutStep, setCheckoutStep] = useState(1)
@@ -16,6 +21,52 @@ export default function LandingPage() {
   const [checkoutLoading, setCheckoutLoading] = useState(false)
   const [checkoutError, setCheckoutError] = useState('')
   const [formData, setFormData] = useState({ name: '', email: '', cpf: '' })
+
+  async function handleLogin(e: React.FormEvent) {
+    e.preventDefault()
+    setAuthLoading(true)
+    setAuthError('')
+    const supabase = createClient()
+    const { error } = await supabase.auth.signInWithPassword({
+      email: loginForm.email,
+      password: loginForm.password,
+    })
+    if (error) {
+      setAuthError('Email ou senha incorretos.')
+      setAuthLoading(false)
+    } else {
+      router.push('/dashboard')
+    }
+  }
+
+  async function handleSignup(e: React.FormEvent) {
+    e.preventDefault()
+    setAuthLoading(true)
+    setAuthError('')
+    const supabase = createClient()
+    const { data, error } = await supabase.auth.signUp({
+      email: signupForm.email,
+      password: signupForm.password,
+      options: { data: { full_name: signupForm.full_name } },
+    })
+    if (error) {
+      setAuthError(error.message)
+      setAuthLoading(false)
+      return
+    }
+    if (data.user) {
+      await supabase.from('user_profiles').upsert({
+        id: data.user.id,
+        email: signupForm.email,
+        full_name: signupForm.full_name,
+        medical_school: '',
+        graduation_year: new Date().getFullYear(),
+        target_match_year: new Date().getFullYear() + 2,
+      })
+      router.push('/dashboard')
+    }
+    setAuthLoading(false)
+  }
 
   function openCheckout(name: string, price: number) {
     setCheckoutPlan({ name, price })
@@ -496,20 +547,46 @@ export default function LandingPage() {
                 <button className={`lp-modal-tab ${authTab==='signup'?'lp-modal-tab-active':''}`} onClick={() => setAuthTab('signup')}>Criar conta</button>
               </div>
               {authTab === 'login' ? (
-                <>
-                  <div className="lp-form-group"><label className="lp-form-label">Email</label><input className="lp-form-input" type="email" placeholder="seu@email.com"/></div>
-                  <div className="lp-form-group"><label className="lp-form-label">Senha</label><input className="lp-form-input" type="password" placeholder="••••••••"/></div>
-                  <button className="lp-modal-btn" onClick={() => router.push('/auth/login')}>Entrar na plataforma</button>
-                  <p className="lp-modal-footer">Não tem conta? <a onClick={() => setAuthTab('signup')}>Criar gratuitamente</a></p>
-                </>
+                <form onSubmit={handleLogin}>
+                  <div className="lp-form-group">
+                    <label className="lp-form-label">Email</label>
+                    <input className="lp-form-input" type="email" placeholder="seu@email.com" required
+                      value={loginForm.email} onChange={e => setLoginForm(f => ({ ...f, email: e.target.value }))} />
+                  </div>
+                  <div className="lp-form-group">
+                    <label className="lp-form-label">Senha</label>
+                    <input className="lp-form-input" type="password" placeholder="••••••••" required
+                      value={loginForm.password} onChange={e => setLoginForm(f => ({ ...f, password: e.target.value }))} />
+                  </div>
+                  {authError && <p style={{color:'#ef4444',fontSize:'13px',marginBottom:'10px'}}>{authError}</p>}
+                  <button type="submit" className="lp-modal-btn" disabled={authLoading}>
+                    {authLoading ? 'Entrando...' : 'Entrar na plataforma'}
+                  </button>
+                  <p className="lp-modal-footer">Não tem conta? <a onClick={() => { setAuthTab('signup'); setAuthError('') }}>Criar gratuitamente</a></p>
+                </form>
               ) : (
-                <>
-                  <div className="lp-form-group"><label className="lp-form-label">Nome completo</label><input className="lp-form-input" type="text" placeholder="Dr. João Silva"/></div>
-                  <div className="lp-form-group"><label className="lp-form-label">Email</label><input className="lp-form-input" type="email" placeholder="seu@email.com"/></div>
-                  <div className="lp-form-group"><label className="lp-form-label">Senha</label><input className="lp-form-input" type="password" placeholder="Mínimo 8 caracteres"/></div>
-                  <button className="lp-modal-btn" onClick={() => router.push('/auth/signup')}>Criar conta grátis</button>
-                  <p className="lp-modal-footer">Já tem conta? <a onClick={() => setAuthTab('login')}>Entrar</a></p>
-                </>
+                <form onSubmit={handleSignup}>
+                  <div className="lp-form-group">
+                    <label className="lp-form-label">Nome completo</label>
+                    <input className="lp-form-input" type="text" placeholder="Dr. João Silva" required
+                      value={signupForm.full_name} onChange={e => setSignupForm(f => ({ ...f, full_name: e.target.value }))} />
+                  </div>
+                  <div className="lp-form-group">
+                    <label className="lp-form-label">Email</label>
+                    <input className="lp-form-input" type="email" placeholder="seu@email.com" required
+                      value={signupForm.email} onChange={e => setSignupForm(f => ({ ...f, email: e.target.value }))} />
+                  </div>
+                  <div className="lp-form-group">
+                    <label className="lp-form-label">Senha</label>
+                    <input className="lp-form-input" type="password" placeholder="Mínimo 8 caracteres" minLength={8} required
+                      value={signupForm.password} onChange={e => setSignupForm(f => ({ ...f, password: e.target.value }))} />
+                  </div>
+                  {authError && <p style={{color:'#ef4444',fontSize:'13px',marginBottom:'10px'}}>{authError}</p>}
+                  <button type="submit" className="lp-modal-btn" disabled={authLoading}>
+                    {authLoading ? 'Criando conta...' : 'Criar conta grátis'}
+                  </button>
+                  <p className="lp-modal-footer">Já tem conta? <a onClick={() => { setAuthTab('login'); setAuthError('') }}>Entrar</a></p>
+                </form>
               )}
             </div>
           </div>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { useTranslate } from '@/lib/useTranslate'
 import type { Question, USMLEStep, QuestionSubject } from '@/types'
 
 const STEPS: (USMLEStep | 'Todos')[] = ['Todos', 'Step 1', 'Step 2CK', 'Step 3']
@@ -11,6 +12,7 @@ const SECS_PER_QUESTION = 80 // 1min 20s — USMLE standard
 interface Props {
   questions: Question[]
   userId: string
+  translationLanguage?: string
 }
 
 type Mode = 'config' | 'exam' | 'results'
@@ -27,7 +29,10 @@ interface SubjectResult {
   total: number
 }
 
-export default function SimuladoClient({ questions, userId }: Props) {
+const LANG_FLAG: Record<string, string> = { pt: '🇧🇷', es: '🇪🇸' }
+
+export default function SimuladoClient({ questions, userId, translationLanguage = 'pt' }: Props) {
+  const { translate, translations, loading: tlLoading, visible, reset: resetTranslations } = useTranslate(translationLanguage)
   const [mode, setMode] = useState<Mode>('config')
 
   // Config state
@@ -114,6 +119,7 @@ export default function SimuladoClient({ questions, userId }: Props) {
   }
 
   function goNext() {
+    resetTranslations()
     if (currentIdx < examQuestions.length - 1) {
       setCurrentIdx(i => i + 1)
     } else {
@@ -295,8 +301,33 @@ export default function SimuladoClient({ questions, userId }: Props) {
             )}
           </div>
 
-          <div className="px-6 py-6">
+          <div className="px-6 pt-6 pb-2">
             <p className="text-foreground leading-relaxed text-base">{question.stem}</p>
+          </div>
+
+          {/* Inline translation */}
+          {visible[`stem-${question.id}`] && (
+            <div className="mx-6 mb-2 px-4 py-3 rounded-xl bg-blue-50 border border-blue-100">
+              <p className="text-xs font-semibold text-blue-600 mb-1">{LANG_FLAG[translationLanguage] ?? '🌐'} Tradução</p>
+              {tlLoading[`stem-${question.id}`]
+                ? <p className="text-xs text-muted-foreground animate-pulse">Traduzindo...</p>
+                : <p className="text-sm text-foreground leading-relaxed">{translations[`stem-${question.id}`]}</p>
+              }
+            </div>
+          )}
+
+          <div className="px-6 pb-4">
+            <button
+              onClick={() => translate(`stem-${question.id}`, question.stem)}
+              disabled={!!tlLoading[`stem-${question.id}`]}
+              className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border border-blue-200 text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors disabled:opacity-50"
+            >
+              {tlLoading[`stem-${question.id}`]
+                ? <svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                : <span>{LANG_FLAG[translationLanguage] ?? '🌐'}</span>
+              }
+              {visible[`stem-${question.id}`] ? 'Ocultar' : 'Traduzir'}
+            </button>
           </div>
 
           <div className="px-6 pb-6 space-y-3">

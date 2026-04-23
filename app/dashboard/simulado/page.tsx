@@ -8,15 +8,16 @@ export default async function SimuladoPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
 
-  const { data: questions } = await supabase
-    .from('questions')
-    .select('*')
-    .order('created_at', { ascending: true })
+  const [{ data: questions }, { data: profile }] = await Promise.all([
+    supabase.from('questions').select('*').order('created_at', { ascending: true }),
+    supabase.from('user_profiles').select('translation_language').eq('id', user.id).single(),
+  ])
 
   return (
     <SimuladoClient
       questions={(questions ?? []) as Question[]}
       userId={user.id}
+      translationLanguage={profile?.translation_language ?? 'pt'}
     />
   )
 }

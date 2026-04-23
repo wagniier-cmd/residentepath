@@ -110,6 +110,22 @@ export default async function DashboardPage() {
     weeklyActivity.push({ date: label, questions: qCount, flashcards: fCount })
   }
 
+  // Weekly goals — week starts on Monday
+  const weekStart = new Date()
+  weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7))
+  weekStart.setHours(0, 0, 0, 0)
+  const weekStartStr = weekStart.toISOString().split('T')[0]
+
+  const { data: goalData } = await supabase
+    .from('user_goals')
+    .select('questions_goal, flashcards_goal')
+    .eq('user_id', user.id)
+    .eq('week_start', weekStartStr)
+    .single()
+
+  const questionsThisWeek = weeklyQuestions?.length || 0
+  const flashcardsThisWeek = weeklyFlashcards?.length || 0
+
   const stats = {
     questionsToday: questionsToday?.length || 0,
     flashcardsToday: flashcardsToday?.length || 0,
@@ -117,7 +133,14 @@ export default async function DashboardPage() {
     dueFlashcards: dueFlashcards?.length || 0,
     subjectProgress,
     weeklyActivity,
+    weeklyGoal: {
+      questionsGoal: goalData?.questions_goal ?? 50,
+      flashcardsGoal: goalData?.flashcards_goal ?? 30,
+      questionsThisWeek,
+      flashcardsThisWeek,
+      weekStart: weekStartStr,
+    },
   }
 
-  return <DashboardClient profile={profile} stats={stats} />
+  return <DashboardClient profile={profile} stats={stats} userId={user.id} />
 }

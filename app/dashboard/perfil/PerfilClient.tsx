@@ -12,6 +12,7 @@ interface Profile {
   medical_school: string
   graduation_year: number
   target_match_year: number
+  translation_language: string
 }
 
 interface Stats {
@@ -80,6 +81,7 @@ export default function PerfilClient({ profile: initialProfile, stats, subjectSt
       medical_school: profile.medical_school,
       graduation_year: profile.graduation_year,
       target_match_year: profile.target_match_year,
+      translation_language: profile.translation_language,
     }).eq('id', profile.id)
     setSaveMsg(error ? 'err' : 'ok')
     setTimeout(() => setSaveMsg(null), 3000)
@@ -138,6 +140,19 @@ export default function PerfilClient({ profile: initialProfile, stats, subjectSt
                 </select>
               </div>
             </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-1.5">🌐 Idioma de tradução preferido</label>
+            <select
+              value={profile.translation_language}
+              onChange={e => setProfile(p => ({ ...p, translation_language: e.target.value }))}
+              className="w-full md:w-64 border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white"
+            >
+              <option value="pt">🇧🇷 Português</option>
+              <option value="es">🇪🇸 Español</option>
+            </select>
+            <p className="text-xs text-muted-foreground mt-1">Usado nos botões de tradução das questões e simulados</p>
           </div>
 
           <div className="flex items-center gap-3 pt-1">

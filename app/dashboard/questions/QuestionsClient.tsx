@@ -3,6 +3,8 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useTranslate } from '@/lib/useTranslate'
+import { useTranslation } from '@/lib/i18n/LanguageContext'
+import { TRANSLATE_TARGET } from '@/lib/i18n/translations'
 import type { Question } from '@/types'
 import type { UserPlan } from '@/lib/subscription'
 
@@ -19,15 +21,15 @@ interface Props {
   userId: string
   userPlan: UserPlan
   answeredToday: number
-  translationLanguage?: string
 }
 
 const STEPS = ['Todos', 'Step 1', 'Step 2CK', 'Step 3']
 const DIFFICULTIES = ['Todas', 'Fácil', 'Médio', 'Difícil']
-const LANG_FLAG: Record<string, string> = { pt: '🇧🇷', es: '🇪🇸' }
-const LANG_LABEL: Record<string, string> = { pt: 'Português', es: 'Español' }
 
-export default function QuestionsClient({ questions, attempts: initialAttempts, userId, translationLanguage = 'pt' }: Props) {
+export default function QuestionsClient({ questions, attempts: initialAttempts, userId, userPlan, answeredToday }: Props) {
+  const { t, language } = useTranslation()
+  const translateTarget = TRANSLATE_TARGET[language] ?? 'pt'
+  const showTranslateBtn = TRANSLATE_TARGET[language] !== null
   const [attempts, setAttempts] = useState<Attempt[]>(initialAttempts)
   const [filterStep, setFilterStep] = useState('Todos')
   const [filterDifficulty, setFilterDifficulty] = useState('Todas')
@@ -44,7 +46,7 @@ export default function QuestionsClient({ questions, attempts: initialAttempts, 
   const noteSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastNoteQuestionId = useRef<string | null>(null)
 
-  const { translate, translations, loading: tlLoading, visible, reset: resetTranslations } = useTranslate(translationLanguage)
+  const { translate, translations, loading: tlLoading, visible, reset: resetTranslations } = useTranslate(translateTarget)
 
   const subjects = useMemo(() => {
     const s = new Set(questions.map(q => q.subject))
@@ -166,8 +168,8 @@ export default function QuestionsClient({ questions, attempts: initialAttempts, 
     return 'border-border opacity-50'
   }
 
-  const flag = LANG_FLAG[translationLanguage] ?? '🌐'
-  const langLabel = LANG_LABEL[translationLanguage] ?? translationLanguage
+  const flag = language === 'pt' ? '🇧🇷' : language === 'es' ? '🇪🇸' : '🌐'
+  const langLabel = language === 'pt' ? 'Português' : language === 'es' ? 'Español' : language
 
   // Build a combined key for stem+options translation
   const stemKey = question ? `stem-${question.id}` : ''
@@ -180,9 +182,9 @@ export default function QuestionsClient({ questions, attempts: initialAttempts, 
   return (
     <div className="animate-fade-in">
       <div className="mb-6">
-        <h1 className="text-3xl text-primary-700 mb-1">Banco de Questões</h1>
+        <h1 className="text-3xl text-primary-700 mb-1">{t.questions.title}</h1>
         <p className="text-muted-foreground text-sm">
-          {totalAnswered} respondidas · {totalAnswered > 0 ? Math.round((totalCorrect / totalAnswered) * 100) : 0}% de acerto global
+          {totalAnswered} {t.questions.answeredCount} · {totalAnswered > 0 ? Math.round((totalCorrect / totalAnswered) * 100) : 0}% {t.label.accuracy.toLowerCase()}
         </p>
       </div>
 
@@ -199,7 +201,7 @@ export default function QuestionsClient({ questions, attempts: initialAttempts, 
       {filtered.length === 0 ? (
         <div className="bg-white rounded-2xl border border-border p-12 text-center">
           <p className="text-4xl mb-3">🔍</p>
-          <p className="text-muted-foreground">Nenhuma questão encontrada com esses filtros.</p>
+          <p className="text-muted-foreground">{t.msg.noQuestions}</p>
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-border overflow-hidden">
@@ -232,22 +234,24 @@ export default function QuestionsClient({ questions, attempts: initialAttempts, 
           {/* Stem translation block */}
           {visible[stemKey] && (
             <div className="mx-6 mb-2 p-4 rounded-xl bg-blue-50 border border-blue-100">
-              <p className="text-xs font-semibold text-blue-600 mb-2">{flag} Tradução — {langLabel}</p>
+              <p className="text-xs font-semibold text-blue-600 mb-2">{flag} {t.translate.translationLabel}</p>
               {tlLoading[stemKey]
-                ? <p className="text-sm text-muted-foreground animate-pulse">Traduzindo...</p>
+                ? <p className="text-sm text-muted-foreground animate-pulse">{t.translate.translating}</p>
                 : <p className="text-sm text-foreground leading-relaxed whitespace-pre-line">{translations[stemKey]}</p>
               }
             </div>
           )}
 
           {/* Translate stem+options button */}
-          <div className="px-6 pb-4">
-            <TranslateButton
-              flag={flag} langLabel={langLabel}
-              isVisible={!!visible[stemKey]} isLoading={!!tlLoading[stemKey]}
-              onClick={() => translate(stemKey, stemForTranslation)}
-            />
-          </div>
+          {showTranslateBtn && (
+            <div className="px-6 pb-4">
+              <TranslateButton
+                flag={flag}
+                isVisible={!!visible[stemKey]} isLoading={!!tlLoading[stemKey]}
+                onClick={() => translate(stemKey, stemForTranslation)}
+              />
+            </div>
+          )}
 
           {/* Options */}
           <div className="px-6 pb-6 space-y-3">
@@ -284,7 +288,7 @@ export default function QuestionsClient({ questions, attempts: initialAttempts, 
               <div className="flex items-center gap-2 mb-3">
                 <span className="text-lg">{selectedAnswer === question.correct_answer ? '✅' : '❌'}</span>
                 <span className={`font-semibold text-sm ${selectedAnswer === question.correct_answer ? 'text-correct' : 'text-incorrect'}`}>
-                  {selectedAnswer === question.correct_answer ? 'Correto! Resposta: ' : 'Incorreto. Resposta correta: '}
+                  {selectedAnswer === question.correct_answer ? `${t.label.correct}! ${t.questions.correctAnswer}: ` : `${t.label.incorrect}. ${t.questions.correctAnswer}: `}
                   {question.correct_answer}
                 </span>
               </div>
@@ -303,10 +307,9 @@ export default function QuestionsClient({ questions, attempts: initialAttempts, 
 
               <div className="mt-3">
                 <TranslateButton
-                  flag={flag} langLabel={langLabel}
+                  flag={flag}
                   isVisible={!!visible[explanationKey]} isLoading={!!tlLoading[explanationKey]}
                   onClick={() => translate(explanationKey, question.explanation)}
-                  label="explicação"
                 />
               </div>
 
@@ -410,9 +413,10 @@ export default function QuestionsClient({ questions, attempts: initialAttempts, 
   )
 }
 
-function TranslateButton({ flag, langLabel, isVisible, isLoading, onClick, label = 'questão' }: {
-  flag: string; langLabel: string; isVisible: boolean; isLoading: boolean; onClick: () => void; label?: string
+function TranslateButton({ flag, isVisible, isLoading, onClick }: {
+  flag: string; isVisible: boolean; isLoading: boolean; onClick: () => void
 }) {
+  const { t } = useTranslation()
   return (
     <button
       onClick={onClick}
@@ -423,7 +427,7 @@ function TranslateButton({ flag, langLabel, isVisible, isLoading, onClick, label
         ? <svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
         : <span>{flag}</span>
       }
-      {isLoading ? 'Traduzindo...' : isVisible ? `Ocultar tradução` : `Traduzir ${label} para ${langLabel}`}
+      {isLoading ? t.translate.translating : isVisible ? t.translate.hide : `${flag} ${t.translate.translateTo.replace(/^🌐\s*/, '')}`}
     </button>
   )
 }

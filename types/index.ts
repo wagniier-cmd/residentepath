@@ -100,9 +100,16 @@ export interface WeeklyGoal {
 
 export interface DashboardStats {
   questionsToday: number
+  accuracyToday: number
+  questionsYesterday: number
   flashcardsToday: number
   streak: number
   dueFlashcards: number
+  totalQuestionsEver: number
+  weeklyStudyMinutes: number
+  lastSubjectStudied: string | null
+  weakestSubject: { subject: string; percentage: number; total: number; remaining: number } | null
+  daysToMatch: number | null
   subjectProgress: SubjectProgress[]
   weeklyActivity: WeeklyActivity[]
   weeklyGoal: WeeklyGoal

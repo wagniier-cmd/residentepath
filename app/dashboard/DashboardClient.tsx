@@ -2,9 +2,11 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
-import type { WeeklyGoal } from '@/types'
-import type { DashboardStats, UserProfile } from '@/types'
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  LineChart, Line, CartesianGrid, Cell,
+} from 'recharts'
+import type { WeeklyGoal, DashboardStats, UserProfile } from '@/types'
 
 interface Props {
   profile: UserProfile | null
@@ -12,53 +14,252 @@ interface Props {
   userId: string
 }
 
+function formatStudyTime(minutes: number): string {
+  if (minutes === 0) return '0 min'
+  if (minutes < 60) return `${minutes}min`
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  return m > 0 ? `${h}h ${m}min` : `${h}h`
+}
+
+function barColor(pct: number) {
+  if (pct >= 70) return '#22C55E'
+  if (pct >= 40) return '#F59E0B'
+  return '#EF4444'
+}
+
 export default function DashboardClient({ profile, stats, userId }: Props) {
   const firstName = profile?.full_name?.split(' ')[0] || 'Médico'
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite'
 
+  const today = new Date()
+  const formattedDate = today.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })
+
+  const deltaQ = stats.questionsToday - stats.questionsYesterday
+  const deltaText =
+    deltaQ > 0 ? `+${deltaQ} que ontem` :
+    deltaQ < 0 ? `${deltaQ} que ontem` :
+    'igual a ontem'
+  const deltaColor = deltaQ >= 0 ? '#22C55E' : '#EF4444'
+
   return (
     <div className="animate-fade-in">
-      {/* Header */}
+      {/* ── Header ── */}
       <div className="mb-8">
-        <h1 className="text-3xl text-primary-700 mb-1">{greeting}, {firstName}!</h1>
-        <p className="text-muted-foreground">
-          {profile?.target_match_year
-            ? `Match ${profile.target_match_year} — continue firme nos estudos.`
-            : 'Continue firme nos estudos.'}
-        </p>
+        <h1 className="text-3xl font-bold text-primary-700 mb-2">
+          {greeting}, {firstName}!
+        </h1>
+        <div className="flex items-center gap-3 flex-wrap">
+          <p className="text-muted-foreground capitalize">{formattedDate}</p>
+          {stats.daysToMatch !== null && (
+            <span className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-sm font-medium border border-blue-100">
+              🎯 {stats.daysToMatch} dias para o seu Match
+            </span>
+          )}
+        </div>
       </div>
 
-      {/* Stats cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      {/* ── 6 Stats cards (2 × 3) ── */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
         <StatCard
           label="Questões hoje"
           value={stats.questionsToday}
-          icon="📝"
-          color="blue"
+          icon={<IconQuestions />}
+          bg="#EFF6FF" iconColor="#2563EB"
+          footer={<span style={{ color: deltaColor, fontSize: 11, fontWeight: 600 }}>{deltaText}</span>}
         />
         <StatCard
-          label="Flashcards hoje"
-          value={stats.flashcardsToday}
-          icon="🃏"
-          color="purple"
+          label="% Acerto hoje"
+          value={stats.questionsToday > 0 ? `${stats.accuracyToday}%` : '—'}
+          icon={<IconTarget />}
+          bg={stats.accuracyToday >= 70 ? '#F0FDF4' : stats.accuracyToday >= 50 ? '#FFFBEB' : '#FEF2F2'}
+          iconColor={stats.accuracyToday >= 70 ? '#16A34A' : stats.accuracyToday >= 50 ? '#D97706' : '#DC2626'}
+          footer={stats.questionsToday > 0
+            ? <span style={{ color: '#94a3b8', fontSize: 11 }}>{stats.questionsToday} respostas</span>
+            : null}
         />
         <StatCard
           label="Sequência"
           value={`${stats.streak} ${stats.streak === 1 ? 'dia' : 'dias'}`}
-          icon="🔥"
-          color="orange"
+          icon={<IconFlame />}
+          bg="#FFF7ED" iconColor="#EA580C"
+          footer={<span style={{ color: '#94a3b8', fontSize: 11 }}>dias consecutivos</span>}
+        />
+        <StatCard
+          label="Total respondidas"
+          value={stats.totalQuestionsEver.toLocaleString('pt-BR')}
+          icon={<IconBook />}
+          bg="#EEF2FF" iconColor="#4F46E5"
+          footer={<span style={{ color: '#94a3b8', fontSize: 11 }}>desde o início</span>}
         />
         <StatCard
           label="Flashcards devidos"
           value={stats.dueFlashcards}
-          icon="⏰"
-          color={stats.dueFlashcards > 0 ? 'red' : 'green'}
+          icon={<IconClock />}
+          bg={stats.dueFlashcards > 0 ? '#FEF2F2' : '#F0FDF4'}
+          iconColor={stats.dueFlashcards > 0 ? '#DC2626' : '#16A34A'}
+          footer={<span style={{ color: '#94a3b8', fontSize: 11 }}>
+            {stats.dueFlashcards > 0 ? 'para revisar hoje' : 'em dia!'}
+          </span>}
+        />
+        <StatCard
+          label="Tempo esta semana"
+          value={formatStudyTime(stats.weeklyStudyMinutes)}
+          icon={<IconTimer />}
+          bg="#FAF5FF" iconColor="#9333EA"
+          footer={<span style={{ color: '#94a3b8', fontSize: 11 }}>estimado</span>}
         />
       </div>
 
-      {/* Quick actions */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+      {/* ── Continuar de onde parou ── */}
+      {(stats.lastSubjectStudied || stats.weakestSubject) && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+          {stats.lastSubjectStudied && (
+            <div className="bg-white border border-blue-100 rounded-2xl p-5 flex items-start gap-4">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0 text-blue-600">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-muted-foreground mb-0.5">Continuar de onde parou</p>
+                <p className="font-semibold text-foreground truncate">{stats.lastSubjectStudied}</p>
+                <Link
+                  href="/dashboard/questions"
+                  className="inline-block mt-2 text-xs font-medium text-blue-600 hover:text-blue-800 underline underline-offset-2"
+                >
+                  Continuar →
+                </Link>
+              </div>
+            </div>
+          )}
+          {stats.weakestSubject && (
+            <div className="bg-white border border-red-100 rounded-2xl p-5 flex items-start gap-4">
+              <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center flex-shrink-0 text-red-500">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-muted-foreground mb-0.5">Especialidade mais fraca</p>
+                <p className="font-semibold text-foreground truncate">{stats.weakestSubject.subject}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {stats.weakestSubject.percentage}% acerto
+                  {stats.weakestSubject.remaining > 0 && ` · ${stats.weakestSubject.remaining} questões disponíveis`}
+                </p>
+                <Link
+                  href="/dashboard/questions"
+                  className="inline-block mt-2 text-xs font-medium text-red-600 hover:text-red-800 underline underline-offset-2"
+                >
+                  Praticar →
+                </Link>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Meta da semana ── */}
+      <WeeklyGoalSection goal={stats.weeklyGoal} userId={userId} />
+
+      {/* ── Charts row ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        {/* Progresso por especialidade — horizontal bar */}
+        <div className="bg-white rounded-2xl p-6 border border-border">
+          <h2 className="text-base font-semibold text-primary-700 mb-4">Progresso por Especialidade</h2>
+          {stats.subjectProgress.length > 0 ? (
+            <ResponsiveContainer width="100%" height={Math.max(180, stats.subjectProgress.length * 32)}>
+              <BarChart
+                data={stats.subjectProgress}
+                layout="vertical"
+                margin={{ top: 0, right: 32, left: 0, bottom: 0 }}
+              >
+                <XAxis
+                  type="number"
+                  domain={[0, 100]}
+                  tick={{ fontSize: 10, fill: '#94a3b8' }}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={v => `${v}%`}
+                />
+                <YAxis
+                  dataKey="subject"
+                  type="category"
+                  width={110}
+                  tick={{ fontSize: 11, fill: '#64748b' }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <Tooltip
+                  contentStyle={{ borderRadius: '10px', border: '1px solid #e2e8f0', fontSize: '12px' }}
+                  formatter={(value: number, _name: string, props: any) =>
+                    [`${value}% (${props.payload.correct}/${props.payload.total})`, 'Acerto']}
+                />
+                <Bar dataKey="percentage" radius={[0, 4, 4, 0]} maxBarSize={18}>
+                  {stats.subjectProgress.map((entry, i) => (
+                    <Cell key={i} fill={barColor(entry.percentage)} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <EmptyState text="Responda questões para ver seu progresso por especialidade." />
+          )}
+        </div>
+
+        {/* Desempenho recente — line chart */}
+        <div className="bg-white rounded-2xl p-6 border border-border">
+          <h2 className="text-base font-semibold text-primary-700 mb-4">Desempenho Recente (7 dias)</h2>
+          {stats.weeklyActivity.some(d => d.questions > 0) ? (
+            <ResponsiveContainer width="100%" height={180}>
+              <LineChart data={stats.weeklyActivity} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fontSize: 11, fill: '#94a3b8' }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  tick={{ fontSize: 11, fill: '#94a3b8' }}
+                  axisLine={false}
+                  tickLine={false}
+                  allowDecimals={false}
+                />
+                <Tooltip
+                  contentStyle={{ borderRadius: '10px', border: '1px solid #e2e8f0', fontSize: '12px' }}
+                  labelStyle={{ fontWeight: 600 }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="questions"
+                  name="Questões"
+                  stroke="#1E3A5F"
+                  strokeWidth={2.5}
+                  dot={{ fill: '#1E3A5F', r: 3, strokeWidth: 0 }}
+                  activeDot={{ r: 5 }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="flashcards"
+                  name="Flashcards"
+                  stroke="#93c5fd"
+                  strokeWidth={2}
+                  dot={{ fill: '#93c5fd', r: 3, strokeWidth: 0 }}
+                  activeDot={{ r: 5 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <EmptyState text="Nenhuma atividade esta semana ainda. Comece estudando!" />
+          )}
+        </div>
+      </div>
+
+      {/* ── Quick actions ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Link
           href="/dashboard/questions"
           className="group flex items-center gap-4 p-5 bg-primary-700 rounded-2xl hover:bg-primary-800 transition-colors"
@@ -81,9 +282,7 @@ export default function DashboardClient({ profile, stats, userId }: Props) {
           <div>
             <p className="text-primary-700 font-semibold text-lg">Revisar Flashcards</p>
             <p className="text-muted-foreground text-sm">
-              {stats.dueFlashcards > 0
-                ? `${stats.dueFlashcards} cards para revisar`
-                : 'Tudo em dia!'}
+              {stats.dueFlashcards > 0 ? `${stats.dueFlashcards} cards para revisar` : 'Tudo em dia!'}
             </p>
           </div>
           <svg className="ml-auto w-5 h-5 text-muted-foreground group-hover:text-primary-700 group-hover:translate-x-1 transition-all" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -91,82 +290,38 @@ export default function DashboardClient({ profile, stats, userId }: Props) {
           </svg>
         </Link>
       </div>
+    </div>
+  )
+}
 
-      {/* Weekly goals */}
-      <WeeklyGoalSection goal={stats.weeklyGoal} userId={userId} />
+// ── Stat Card ────────────────────────────────────────────────────────────────
 
-      {/* Charts row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Weekly activity */}
-        <div className="bg-white rounded-2xl p-6 border border-border">
-          <h2 className="text-lg font-semibold text-primary-700 mb-4">Atividade Semanal</h2>
-          {stats.weeklyActivity.some(d => d.questions > 0 || d.flashcards > 0) ? (
-            <ResponsiveContainer width="100%" height={180}>
-              <BarChart data={stats.weeklyActivity} barGap={2}>
-                <XAxis dataKey="date" tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                <Tooltip
-                  contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '12px' }}
-                  labelStyle={{ fontWeight: 600 }}
-                />
-                <Bar dataKey="questions" name="Questões" fill="#1E3A5F" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="flashcards" name="Flashcards" fill="#93c5fd" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <EmptyState text="Nenhuma atividade esta semana ainda. Comece estudando!" />
-          )}
-        </div>
-
-        {/* Subject progress */}
-        <div className="bg-white rounded-2xl p-6 border border-border">
-          <h2 className="text-lg font-semibold text-primary-700 mb-4">Progresso por Especialidade</h2>
-          {stats.subjectProgress.length > 0 ? (
-            <div className="space-y-3">
-              {stats.subjectProgress.map(sp => (
-                <div key={sp.subject}>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="text-foreground font-medium">{sp.subject}</span>
-                    <span className="text-muted-foreground">{sp.percentage}% ({sp.correct}/{sp.total})</span>
-                  </div>
-                  <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all duration-500"
-                      style={{
-                        width: `${sp.percentage}%`,
-                        backgroundColor: sp.percentage >= 70 ? '#22C55E' : sp.percentage >= 50 ? '#f59e0b' : '#EF4444'
-                      }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <EmptyState text="Responda questões para ver seu progresso por especialidade." />
-          )}
-        </div>
+function StatCard({
+  label, value, icon, bg, iconColor, footer,
+}: {
+  label: string
+  value: string | number
+  icon: React.ReactNode
+  bg: string
+  iconColor: string
+  footer?: React.ReactNode
+}) {
+  return (
+    <div className="rounded-2xl p-4 border border-border bg-white flex flex-col gap-2">
+      <div
+        className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+        style={{ background: bg, color: iconColor }}
+      >
+        {icon}
       </div>
+      <p className="text-2xl font-bold text-foreground leading-none">{value}</p>
+      <p className="text-xs text-muted-foreground">{label}</p>
+      {footer && <div>{footer}</div>}
     </div>
   )
 }
 
-function StatCard({ label, value, icon }: { label: string; value: string | number; icon: string; color?: string }) {
-  return (
-    <div className="rounded-2xl p-4 border border-border bg-white">
-      <div className="text-2xl mb-2">{icon}</div>
-      <p className="text-2xl font-bold text-foreground">{value}</p>
-      <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
-    </div>
-  )
-}
-
-function EmptyState({ text }: { text: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center h-32 text-center">
-      <p className="text-muted-foreground text-sm">{text}</p>
-    </div>
-  )
-}
+// ── Weekly Goal ───────────────────────────────────────────────────────────────
 
 function WeeklyGoalSection({ goal, userId }: { goal: WeeklyGoal; userId: string }) {
   const [editing, setEditing] = useState(false)
@@ -176,6 +331,16 @@ function WeeklyGoalSection({ goal, userId }: { goal: WeeklyGoal; userId: string 
 
   const qPct = Math.min(100, goal.questionsGoal > 0 ? Math.round((goal.questionsThisWeek / goal.questionsGoal) * 100) : 0)
   const fPct = Math.min(100, goal.flashcardsGoal > 0 ? Math.round((goal.flashcardsThisWeek / goal.flashcardsGoal) * 100) : 0)
+  const avgPct = Math.round((qPct + fPct) / 2)
+
+  const today = new Date()
+  const daysRemaining = (7 - today.getDay()) % 7
+
+  const motivationalMsg =
+    avgPct >= 100 ? '🏆 Meta da semana atingida! Excelente desempenho!' :
+    avgPct >= 70  ? '💪 Ótimo progresso! Você está quase lá.' :
+    avgPct >= 40  ? '📈 Bom início! Mantenha o ritmo.' :
+    '🎯 Foco! Você ainda tem tempo para atingir a meta.'
 
   async function saveGoal() {
     setSaving(true)
@@ -186,14 +351,20 @@ function WeeklyGoalSection({ goal, userId }: { goal: WeeklyGoal; userId: string 
     })
     setSaving(false)
     setEditing(false)
-    // Refresh to show new goals
     window.location.reload()
   }
 
   return (
     <div className="bg-white rounded-2xl border border-border p-6 mb-8">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-primary-700">Meta da semana</h2>
+      <div className="flex items-start justify-between mb-1">
+        <div>
+          <h2 className="text-base font-semibold text-primary-700">Meta da semana</h2>
+          {!editing && (
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {daysRemaining > 0 ? `${daysRemaining} dia${daysRemaining > 1 ? 's' : ''} restante${daysRemaining > 1 ? 's' : ''}` : 'Último dia da semana'}
+            </p>
+          )}
+        </div>
         <button
           onClick={() => setEditing(e => !e)}
           className="text-xs text-muted-foreground hover:text-primary-700 transition-colors border border-border px-3 py-1.5 rounded-lg hover:border-primary/40"
@@ -201,6 +372,12 @@ function WeeklyGoalSection({ goal, userId }: { goal: WeeklyGoal; userId: string 
           {editing ? 'Cancelar' : '✏️ Editar meta'}
         </button>
       </div>
+
+      {!editing && (
+        <p className="text-sm font-medium mb-4" style={{ color: avgPct >= 70 ? '#16A34A' : avgPct >= 40 ? '#D97706' : '#DC2626' }}>
+          {motivationalMsg}
+        </p>
+      )}
 
       {editing ? (
         <div className="space-y-3">
@@ -229,37 +406,94 @@ function WeeklyGoalSection({ goal, userId }: { goal: WeeklyGoal; userId: string 
         </div>
       ) : (
         <div className="space-y-4">
-          <GoalBar
-            icon="📝" label="Questões"
-            current={goal.questionsThisWeek} goal={goal.questionsGoal} pct={qPct}
-          />
-          <GoalBar
-            icon="🃏" label="Flashcards"
-            current={goal.flashcardsThisWeek} goal={goal.flashcardsGoal} pct={fPct}
-          />
+          <GoalBar icon="📝" label="Questões" current={goal.questionsThisWeek} goal={goal.questionsGoal} pct={qPct} />
+          <GoalBar icon="🃏" label="Flashcards" current={goal.flashcardsThisWeek} goal={goal.flashcardsGoal} pct={fPct} />
         </div>
       )}
     </div>
   )
 }
 
-function GoalBar({ icon, label, current, goal, pct }: { icon: string; label: string; current: number; goal: number; pct: number }) {
+function GoalBar({ icon, label, current, goal, pct }: {
+  icon: string; label: string; current: number; goal: number; pct: number
+}) {
   const done = pct >= 100
+  const color = done ? '#22C55E' : pct >= 70 ? '#16A34A' : pct >= 40 ? '#F59E0B' : '#EF4444'
   return (
     <div>
       <div className="flex items-center justify-between mb-1.5">
         <span className="text-sm text-foreground">{icon} {label}</span>
-        <span className={`text-xs font-semibold ${done ? 'text-correct' : 'text-muted-foreground'}`}>
+        <span className="text-xs font-semibold" style={{ color: done ? '#16A34A' : '#64748b' }}>
           {done ? '✓ Meta atingida!' : `${current} / ${goal}`}
         </span>
       </div>
       <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
         <div
-          className={`h-full rounded-full transition-all duration-500 ${done ? 'bg-correct' : pct >= 60 ? 'bg-primary-700' : 'bg-amber-400'}`}
-          style={{ width: `${pct}%` }}
+          className="h-full rounded-full transition-all duration-700"
+          style={{ width: `${pct}%`, backgroundColor: color }}
         />
       </div>
-      <p className="text-xs text-muted-foreground mt-1">{pct}% da meta semanal</p>
+      <p className="text-xs text-muted-foreground mt-1">{pct}% da meta</p>
     </div>
+  )
+}
+
+function EmptyState({ text }: { text: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center h-32 text-center">
+      <p className="text-muted-foreground text-sm">{text}</p>
+    </div>
+  )
+}
+
+// ── SVG Icons ─────────────────────────────────────────────────────────────────
+
+function IconQuestions() {
+  return (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+    </svg>
+  )
+}
+
+function IconTarget() {
+  return (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  )
+}
+
+function IconFlame() {
+  return (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z" />
+    </svg>
+  )
+}
+
+function IconBook() {
+  return (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+    </svg>
+  )
+}
+
+function IconClock() {
+  return (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  )
+}
+
+function IconTimer() {
+  return (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.5 3.5l1.5 1.5M8.5 3.5L7 5" />
+    </svg>
   )
 }

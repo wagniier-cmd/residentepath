@@ -7,6 +7,7 @@ import {
   LineChart, Line, CartesianGrid, Cell,
 } from 'recharts'
 import type { WeeklyGoal, DashboardStats, UserProfile } from '@/types'
+import { useTranslation } from '@/lib/i18n/LanguageContext'
 
 interface Props {
   profile: UserProfile | null
@@ -29,18 +30,23 @@ function barColor(pct: number) {
 }
 
 export default function DashboardClient({ profile, stats, userId }: Props) {
-  const firstName = profile?.full_name?.split(' ')[0] || 'Médico'
+  const { t, language } = useTranslation()
+  const firstName = profile?.full_name?.split(' ')[0] || (language === 'en' ? 'Doctor' : 'Médico')
   const hour = new Date().getHours()
-  const greeting = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite'
+  const greeting = hour < 12 ? t.dashboard.greetingMorning : hour < 18 ? t.dashboard.greetingAfternoon : t.dashboard.greetingEvening
 
   const today = new Date()
-  const formattedDate = today.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })
+  const formattedDate = today.toLocaleDateString(
+    language === 'en' ? 'en-US' : language === 'es' ? 'es-ES' : 'pt-BR',
+    { weekday: 'long', day: 'numeric', month: 'long' }
+  )
 
   const deltaQ = stats.questionsToday - stats.questionsYesterday
-  const deltaText =
-    deltaQ > 0 ? `+${deltaQ} que ontem` :
-    deltaQ < 0 ? `${deltaQ} que ontem` :
-    'igual a ontem'
+  const deltaText = deltaQ > 0
+    ? `+${deltaQ} ${t.dashboard.thanYesterday}`
+    : deltaQ < 0
+    ? `${deltaQ} ${t.dashboard.thanYesterday}`
+    : t.dashboard.sameAsYesterday
   const deltaColor = deltaQ >= 0 ? '#22C55E' : '#EF4444'
 
   return (
@@ -54,7 +60,7 @@ export default function DashboardClient({ profile, stats, userId }: Props) {
           <p className="text-muted-foreground capitalize">{formattedDate}</p>
           {stats.daysToMatch !== null && (
             <span className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-sm font-medium border border-blue-100">
-              🎯 {stats.daysToMatch} dias para o seu Match
+              🎯 {stats.daysToMatch} {t.dashboard.daysToMatch}
             </span>
           )}
         </div>
@@ -63,52 +69,52 @@ export default function DashboardClient({ profile, stats, userId }: Props) {
       {/* ── 6 Stats cards (2 × 3) ── */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
         <StatCard
-          label="Questões hoje"
+          label={t.dashboard.todayQuestions}
           value={stats.questionsToday}
           icon={<IconQuestions />}
           bg="#EFF6FF" iconColor="#2563EB"
           footer={<span style={{ color: deltaColor, fontSize: 11, fontWeight: 600 }}>{deltaText}</span>}
         />
         <StatCard
-          label="% Acerto hoje"
+          label={t.dashboard.accuracyToday}
           value={stats.questionsToday > 0 ? `${stats.accuracyToday}%` : '—'}
           icon={<IconTarget />}
           bg={stats.accuracyToday >= 70 ? '#F0FDF4' : stats.accuracyToday >= 50 ? '#FFFBEB' : '#FEF2F2'}
           iconColor={stats.accuracyToday >= 70 ? '#16A34A' : stats.accuracyToday >= 50 ? '#D97706' : '#DC2626'}
           footer={stats.questionsToday > 0
-            ? <span style={{ color: '#94a3b8', fontSize: 11 }}>{stats.questionsToday} respostas</span>
+            ? <span style={{ color: '#94a3b8', fontSize: 11 }}>{stats.questionsToday} {t.questions.answeredCount}</span>
             : null}
         />
         <StatCard
-          label="Sequência"
-          value={`${stats.streak} ${stats.streak === 1 ? 'dia' : 'dias'}`}
+          label={t.label.streak}
+          value={`${stats.streak} ${language === 'pt' ? (stats.streak === 1 ? 'dia' : 'dias') : language === 'es' ? (stats.streak === 1 ? 'día' : 'días') : (stats.streak === 1 ? 'day' : 'days')}`}
           icon={<IconFlame />}
           bg="#FFF7ED" iconColor="#EA580C"
-          footer={<span style={{ color: '#94a3b8', fontSize: 11 }}>dias consecutivos</span>}
+          footer={<span style={{ color: '#94a3b8', fontSize: 11 }}>{t.dashboard.consecutiveDays}</span>}
         />
         <StatCard
-          label="Total respondidas"
-          value={stats.totalQuestionsEver.toLocaleString('pt-BR')}
+          label={t.dashboard.totalAnswered}
+          value={stats.totalQuestionsEver.toLocaleString(language === 'en' ? 'en-US' : 'pt-BR')}
           icon={<IconBook />}
           bg="#EEF2FF" iconColor="#4F46E5"
-          footer={<span style={{ color: '#94a3b8', fontSize: 11 }}>desde o início</span>}
+          footer={<span style={{ color: '#94a3b8', fontSize: 11 }}>{t.dashboard.sinceBeginning}</span>}
         />
         <StatCard
-          label="Flashcards devidos"
+          label={t.dashboard.dueFlashcards}
           value={stats.dueFlashcards}
           icon={<IconClock />}
           bg={stats.dueFlashcards > 0 ? '#FEF2F2' : '#F0FDF4'}
           iconColor={stats.dueFlashcards > 0 ? '#DC2626' : '#16A34A'}
           footer={<span style={{ color: '#94a3b8', fontSize: 11 }}>
-            {stats.dueFlashcards > 0 ? 'para revisar hoje' : 'em dia!'}
+            {stats.dueFlashcards > 0 ? t.label.dueToday.toLowerCase() : t.msg.allUpToDate.toLowerCase()}
           </span>}
         />
         <StatCard
-          label="Tempo esta semana"
+          label={t.dashboard.weeklyTime}
           value={formatStudyTime(stats.weeklyStudyMinutes)}
           icon={<IconTimer />}
           bg="#FAF5FF" iconColor="#9333EA"
-          footer={<span style={{ color: '#94a3b8', fontSize: 11 }}>estimado</span>}
+          footer={<span style={{ color: '#94a3b8', fontSize: 11 }}>{t.dashboard.estimated}</span>}
         />
       </div>
 
@@ -124,13 +130,13 @@ export default function DashboardClient({ profile, stats, userId }: Props) {
                 </svg>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs text-muted-foreground mb-0.5">Continuar de onde parou</p>
+                <p className="text-xs text-muted-foreground mb-0.5">{t.dashboard.resumeWhere}</p>
                 <p className="font-semibold text-foreground truncate">{stats.lastSubjectStudied}</p>
                 <Link
                   href="/dashboard/questions"
                   className="inline-block mt-2 text-xs font-medium text-blue-600 hover:text-blue-800 underline underline-offset-2"
                 >
-                  Continuar →
+                  {language === 'en' ? 'Continue →' : language === 'es' ? 'Continuar →' : 'Continuar →'}
                 </Link>
               </div>
             </div>
@@ -143,17 +149,17 @@ export default function DashboardClient({ profile, stats, userId }: Props) {
                 </svg>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs text-muted-foreground mb-0.5">Especialidade mais fraca</p>
+                <p className="text-xs text-muted-foreground mb-0.5">{t.dashboard.weakestSpecialty}</p>
                 <p className="font-semibold text-foreground truncate">{stats.weakestSubject.subject}</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  {stats.weakestSubject.percentage}% acerto
-                  {stats.weakestSubject.remaining > 0 && ` · ${stats.weakestSubject.remaining} questões disponíveis`}
+                  {stats.weakestSubject.percentage}% {t.label.accuracy.toLowerCase()}
+                  {stats.weakestSubject.remaining > 0 && ` · ${stats.weakestSubject.remaining} ${t.dashboard.availableQ}`}
                 </p>
                 <Link
                   href="/dashboard/questions"
                   className="inline-block mt-2 text-xs font-medium text-red-600 hover:text-red-800 underline underline-offset-2"
                 >
-                  Praticar →
+                  {language === 'en' ? 'Practice →' : language === 'es' ? 'Practicar →' : 'Praticar →'}
                 </Link>
               </div>
             </div>
@@ -168,7 +174,7 @@ export default function DashboardClient({ profile, stats, userId }: Props) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
         {/* Progresso por especialidade — horizontal bar */}
         <div className="bg-white rounded-2xl p-6 border border-border">
-          <h2 className="text-base font-semibold text-primary-700 mb-4">Progresso por Especialidade</h2>
+          <h2 className="text-base font-semibold text-primary-700 mb-4">{t.dashboard.subjectProgress}</h2>
           {stats.subjectProgress.length > 0 ? (
             <ResponsiveContainer width="100%" height={Math.max(180, stats.subjectProgress.length * 32)}>
               <BarChart
@@ -195,7 +201,7 @@ export default function DashboardClient({ profile, stats, userId }: Props) {
                 <Tooltip
                   contentStyle={{ borderRadius: '10px', border: '1px solid #e2e8f0', fontSize: '12px' }}
                   formatter={(value: number, _name: string, props: any) =>
-                    [`${value}% (${props.payload.correct}/${props.payload.total})`, 'Acerto']}
+                    [`${value}% (${props.payload.correct}/${props.payload.total})`, t.label.accuracy]}
                 />
                 <Bar dataKey="percentage" radius={[0, 4, 4, 0]} maxBarSize={18}>
                   {stats.subjectProgress.map((entry, i) => (
@@ -205,13 +211,13 @@ export default function DashboardClient({ profile, stats, userId }: Props) {
               </BarChart>
             </ResponsiveContainer>
           ) : (
-            <EmptyState text="Responda questões para ver seu progresso por especialidade." />
+            <EmptyState text={language === 'en' ? 'Answer questions to see your progress by subject.' : language === 'es' ? 'Responde preguntas para ver tu progreso por especialidad.' : 'Responda questões para ver seu progresso por especialidade.'} />
           )}
         </div>
 
         {/* Desempenho recente — line chart */}
         <div className="bg-white rounded-2xl p-6 border border-border">
-          <h2 className="text-base font-semibold text-primary-700 mb-4">Desempenho Recente (7 dias)</h2>
+          <h2 className="text-base font-semibold text-primary-700 mb-4">{t.dashboard.recentPerformance}</h2>
           {stats.weeklyActivity.some(d => d.questions > 0) ? (
             <ResponsiveContainer width="100%" height={180}>
               <LineChart data={stats.weeklyActivity} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
@@ -235,7 +241,7 @@ export default function DashboardClient({ profile, stats, userId }: Props) {
                 <Line
                   type="monotone"
                   dataKey="questions"
-                  name="Questões"
+                  name={t.label.questions}
                   stroke="#1E3A5F"
                   strokeWidth={2.5}
                   dot={{ fill: '#1E3A5F', r: 3, strokeWidth: 0 }}
@@ -244,7 +250,7 @@ export default function DashboardClient({ profile, stats, userId }: Props) {
                 <Line
                   type="monotone"
                   dataKey="flashcards"
-                  name="Flashcards"
+                  name={t.label.flashcards}
                   stroke="#93c5fd"
                   strokeWidth={2}
                   dot={{ fill: '#93c5fd', r: 3, strokeWidth: 0 }}
@@ -253,7 +259,7 @@ export default function DashboardClient({ profile, stats, userId }: Props) {
               </LineChart>
             </ResponsiveContainer>
           ) : (
-            <EmptyState text="Nenhuma atividade esta semana ainda. Comece estudando!" />
+            <EmptyState text={language === 'en' ? 'No activity this week yet. Start studying!' : language === 'es' ? 'Sin actividad esta semana. ¡Empieza a estudiar!' : 'Nenhuma atividade esta semana ainda. Comece estudando!'} />
           )}
         </div>
       </div>
@@ -266,8 +272,8 @@ export default function DashboardClient({ profile, stats, userId }: Props) {
         >
           <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">📝</div>
           <div>
-            <p className="text-white font-semibold text-lg">Praticar Questões</p>
-            <p className="text-white/60 text-sm">Banco USMLE Step 1, 2CK e 3</p>
+            <p className="text-white font-semibold text-lg">{t.dashboard.practiceQuestions}</p>
+            <p className="text-white/60 text-sm">{t.dashboard.usmleBank}</p>
           </div>
           <svg className="ml-auto w-5 h-5 text-white/40 group-hover:text-white group-hover:translate-x-1 transition-all" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -280,9 +286,11 @@ export default function DashboardClient({ profile, stats, userId }: Props) {
         >
           <div className="w-12 h-12 bg-primary-50 rounded-xl flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">🃏</div>
           <div>
-            <p className="text-primary-700 font-semibold text-lg">Revisar Flashcards</p>
+            <p className="text-primary-700 font-semibold text-lg">{t.dashboard.reviewFlashcards}</p>
             <p className="text-muted-foreground text-sm">
-              {stats.dueFlashcards > 0 ? `${stats.dueFlashcards} cards para revisar` : 'Tudo em dia!'}
+              {stats.dueFlashcards > 0
+                ? `${stats.dueFlashcards} ${t.dashboard.cardsToReview}`
+                : t.msg.allUpToDate}
             </p>
           </div>
           <svg className="ml-auto w-5 h-5 text-muted-foreground group-hover:text-primary-700 group-hover:translate-x-1 transition-all" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -324,6 +332,7 @@ function StatCard({
 // ── Weekly Goal ───────────────────────────────────────────────────────────────
 
 function WeeklyGoalSection({ goal, userId }: { goal: WeeklyGoal; userId: string }) {
+  const { t } = useTranslation()
   const [editing, setEditing] = useState(false)
   const [qGoal, setQGoal] = useState(goal.questionsGoal)
   const [fGoal, setFGoal] = useState(goal.flashcardsGoal)
@@ -336,11 +345,14 @@ function WeeklyGoalSection({ goal, userId }: { goal: WeeklyGoal; userId: string 
   const today = new Date()
   const daysRemaining = (7 - today.getDay()) % 7
 
-  const motivationalMsg =
-    avgPct >= 100 ? '🏆 Meta da semana atingida! Excelente desempenho!' :
-    avgPct >= 70  ? '💪 Ótimo progresso! Você está quase lá.' :
-    avgPct >= 40  ? '📈 Bom início! Mantenha o ritmo.' :
-    '🎯 Foco! Você ainda tem tempo para atingir a meta.'
+  const motivationalMsg = avgPct >= 100 ? t.dashboard.motivDone
+    : avgPct >= 70 ? t.dashboard.motivAlmost
+    : avgPct >= 40 ? t.dashboard.motivGoing
+    : t.dashboard.motivFocus
+
+  const daysRemainingText = daysRemaining > 0
+    ? `${daysRemaining} ${t.dashboard.daysRemaining}`
+    : t.dashboard.lastDayWeek
 
   async function saveGoal() {
     setSaving(true)
@@ -358,18 +370,16 @@ function WeeklyGoalSection({ goal, userId }: { goal: WeeklyGoal; userId: string 
     <div className="bg-white rounded-2xl border border-border p-6 mb-8">
       <div className="flex items-start justify-between mb-1">
         <div>
-          <h2 className="text-base font-semibold text-primary-700">Meta da semana</h2>
+          <h2 className="text-base font-semibold text-primary-700">{t.label.weeklyGoal}</h2>
           {!editing && (
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {daysRemaining > 0 ? `${daysRemaining} dia${daysRemaining > 1 ? 's' : ''} restante${daysRemaining > 1 ? 's' : ''}` : 'Último dia da semana'}
-            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">{daysRemainingText}</p>
           )}
         </div>
         <button
           onClick={() => setEditing(e => !e)}
           className="text-xs text-muted-foreground hover:text-primary-700 transition-colors border border-border px-3 py-1.5 rounded-lg hover:border-primary/40"
         >
-          {editing ? 'Cancelar' : '✏️ Editar meta'}
+          {editing ? t.btn.cancel : t.btn.editGoal}
         </button>
       </div>
 
@@ -382,7 +392,7 @@ function WeeklyGoalSection({ goal, userId }: { goal: WeeklyGoal; userId: string 
       {editing ? (
         <div className="space-y-3">
           <div className="flex items-center gap-4">
-            <label className="text-sm text-foreground w-40">📝 Questões/semana</label>
+            <label className="text-sm text-foreground w-40">📝 {t.label.questions}/{t.nav.dashboard.toLowerCase().includes('panel') ? 'semana' : 'week'}</label>
             <input
               type="number" min={1} max={500} value={qGoal}
               onChange={e => setQGoal(Number(e.target.value))}
@@ -390,7 +400,7 @@ function WeeklyGoalSection({ goal, userId }: { goal: WeeklyGoal; userId: string 
             />
           </div>
           <div className="flex items-center gap-4">
-            <label className="text-sm text-foreground w-40">🃏 Flashcards/semana</label>
+            <label className="text-sm text-foreground w-40">🃏 {t.label.flashcards}/{t.nav.dashboard.toLowerCase().includes('panel') ? 'semana' : 'week'}</label>
             <input
               type="number" min={1} max={500} value={fGoal}
               onChange={e => setFGoal(Number(e.target.value))}
@@ -401,13 +411,13 @@ function WeeklyGoalSection({ goal, userId }: { goal: WeeklyGoal; userId: string 
             onClick={saveGoal} disabled={saving}
             className="px-5 py-2 bg-primary-700 text-white rounded-xl text-sm font-medium hover:bg-primary-800 disabled:opacity-50 transition-colors"
           >
-            {saving ? 'Salvando...' : 'Salvar meta'}
+            {saving ? t.btn.saving : t.btn.saveGoal}
           </button>
         </div>
       ) : (
         <div className="space-y-4">
-          <GoalBar icon="📝" label="Questões" current={goal.questionsThisWeek} goal={goal.questionsGoal} pct={qPct} />
-          <GoalBar icon="🃏" label="Flashcards" current={goal.flashcardsThisWeek} goal={goal.flashcardsGoal} pct={fPct} />
+          <GoalBar icon="📝" label={t.label.questions} current={goal.questionsThisWeek} goal={goal.questionsGoal} pct={qPct} />
+          <GoalBar icon="🃏" label={t.label.flashcards} current={goal.flashcardsThisWeek} goal={goal.flashcardsGoal} pct={fPct} />
         </div>
       )}
     </div>
@@ -417,6 +427,7 @@ function WeeklyGoalSection({ goal, userId }: { goal: WeeklyGoal; userId: string 
 function GoalBar({ icon, label, current, goal, pct }: {
   icon: string; label: string; current: number; goal: number; pct: number
 }) {
+  const { t } = useTranslation()
   const done = pct >= 100
   const color = done ? '#22C55E' : pct >= 70 ? '#16A34A' : pct >= 40 ? '#F59E0B' : '#EF4444'
   return (
@@ -424,7 +435,7 @@ function GoalBar({ icon, label, current, goal, pct }: {
       <div className="flex items-center justify-between mb-1.5">
         <span className="text-sm text-foreground">{icon} {label}</span>
         <span className="text-xs font-semibold" style={{ color: done ? '#16A34A' : '#64748b' }}>
-          {done ? '✓ Meta atingida!' : `${current} / ${goal}`}
+          {done ? t.label.goalReached : `${current} / ${goal}`}
         </span>
       </div>
       <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
@@ -433,7 +444,7 @@ function GoalBar({ icon, label, current, goal, pct }: {
           style={{ width: `${pct}%`, backgroundColor: color }}
         />
       </div>
-      <p className="text-xs text-muted-foreground mt-1">{pct}% da meta</p>
+      <p className="text-xs text-muted-foreground mt-1">{pct}% {t.label.weeklyGoal.toLowerCase()}</p>
     </div>
   )
 }
@@ -493,7 +504,6 @@ function IconTimer() {
   return (
     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.5 3.5l1.5 1.5M8.5 3.5L7 5" />
     </svg>
   )
 }

@@ -30,6 +30,7 @@ export interface T {
     prev: string
     save: string
     saving: string
+    saveChanges: string
     edit: string
     cancel: string
     createFlashcard: string
@@ -60,6 +61,7 @@ export interface T {
     translateQuestion: string
     translateExplanation: string
     translationLabel: string
+    translationOf: string
   }
   msg: {
     flashcardSaved: string
@@ -82,6 +84,7 @@ export interface T {
     generateFlashcard: string
     prevQuestion: string
     nextQuestion: string
+    nextQuestionBtn: string
     filter: string
     allSteps: string
     allSubjects: string
@@ -89,6 +92,14 @@ export interface T {
     unanswered: string
     answered: string
     answeredCount: string
+    difficulty: string
+    specialtyFilter: string
+    questionsFound: string
+    answeredCorrectly: string
+    answeredIncorrectly: string
+    autoFlashcard: string
+    verifying: string
+    saveNote: string
   }
   flashcards: {
     title: string
@@ -104,6 +115,26 @@ export interface T {
     generating: string
     noCards: string
     allDone: string
+    sessionDone: string
+    reviewedCount: string
+    sm2Note: string
+    backToBrowse: string
+    reviewing: string
+    cardsForToday: string
+    exitReview: string
+    clickReveal: string
+    clickForBack: string
+    howDidYouDo: string
+    generateAI: string
+    startReview: string
+    totalCards: string
+    dueReviewBadge: string
+    upToDateBadge: string
+    interval: string
+    ease: string
+    nextReview: string
+    noCardsSubject: string
+    allSubjects: string
   }
   simulado: {
     title: string
@@ -122,16 +153,59 @@ export interface T {
     yourAnswer: string
     reviewFlagged: string
     allQuestions: string
+    configSubtitle: string
+    numQuestions: string
+    totalTime: string
+    available: string
+    willDraw: string
+    willDrawSuffix: string
+    finishConfirm: string
+    flaggedForReview: string
+    removeFlag: string
+    completed: string
+    timeUsedOf: string
+    of: string
+    perSubject: string
+    flaggedSection: string
+    newExam: string
+    answeredLabel: string
+    flaggedLabel: string
+    notAnswered: string
+    blank: string
   }
   dashboard: {
     greeting: string
+    greetingMorning: string
+    greetingAfternoon: string
+    greetingEvening: string
     todayQuestions: string
+    accuracyToday: string
     todayFlashcards: string
+    totalAnswered: string
+    weeklyTime: string
     weeklyActivity: string
     subjectProgress: string
+    recentPerformance: string
     practiceQuestions: string
     reviewFlashcards: string
     dueFlashcards: string
+    daysToMatch: string
+    consecutiveDays: string
+    sinceBeginning: string
+    estimated: string
+    resumeWhere: string
+    weakestSpecialty: string
+    availableQ: string
+    daysRemaining: string
+    lastDayWeek: string
+    usmleBank: string
+    cardsToReview: string
+    motivDone: string
+    motivAlmost: string
+    motivGoing: string
+    motivFocus: string
+    thanYesterday: string
+    sameAsYesterday: string
   }
   perfil: {
     title: string
@@ -185,6 +259,7 @@ const pt: T = {
     prev: 'Anterior',
     save: 'Salvar',
     saving: 'Salvando...',
+    saveChanges: 'Salvar alterações',
     edit: 'Editar',
     cancel: 'Cancelar',
     createFlashcard: 'Criar flashcard',
@@ -215,6 +290,7 @@ const pt: T = {
     translateQuestion: 'Traduzir questão',
     translateExplanation: 'Traduzir explicação',
     translationLabel: '🇧🇷 Tradução em Português',
+    translationOf: 'Tradução da explicação',
   },
   msg: {
     flashcardSaved: '✓ Flashcard salvo!',
@@ -237,6 +313,7 @@ const pt: T = {
     generateFlashcard: '🃏 Criar flashcard desta questão',
     prevQuestion: '← Anterior',
     nextQuestion: 'Próxima →',
+    nextQuestionBtn: 'Próxima questão →',
     filter: 'Filtrar',
     allSteps: 'Todos os steps',
     allSubjects: 'Todas especialidades',
@@ -244,6 +321,14 @@ const pt: T = {
     unanswered: 'Não respondidas',
     answered: 'Respondidas',
     answeredCount: 'respondidas',
+    difficulty: 'Dificuldade',
+    specialtyFilter: 'Especialidade',
+    questionsFound: 'questões encontradas',
+    answeredCorrectly: '✓ Respondida corretamente',
+    answeredIncorrectly: '✗ Respondida incorretamente',
+    autoFlashcard: '📚 Flashcard criado automaticamente para revisão',
+    verifying: 'Verificando...',
+    saveNote: 'Salvar nota',
   },
   flashcards: {
     title: 'Flashcards',
@@ -259,6 +344,26 @@ const pt: T = {
     generating: 'Gerando...',
     noCards: 'Nenhum flashcard ainda.',
     allDone: 'Todos revisados!',
+    sessionDone: 'Sessão concluída!',
+    reviewedCount: 'Você revisou',
+    sm2Note: 'O algoritmo SM-2 agendou as próximas revisões para você.',
+    backToBrowse: 'Voltar ao painel de flashcards',
+    reviewing: 'Revisando Flashcards',
+    cardsForToday: 'cards para hoje',
+    exitReview: '← Sair da revisão',
+    clickReveal: 'Clique para revelar',
+    clickForBack: 'Clique para ver o verso',
+    howDidYouDo: 'Como você se saiu?',
+    generateAI: '✨ Gerar com IA',
+    startReview: 'Iniciar revisão',
+    totalCards: 'cards no total',
+    dueReviewBadge: '⏰ Para revisar',
+    upToDateBadge: '✓ Em dia',
+    interval: 'Intervalo',
+    ease: 'Facilidade',
+    nextReview: 'Próxima',
+    noCardsSubject: 'Nenhum flashcard encontrado para esta especialidade.',
+    allSubjects: 'Todas',
   },
   simulado: {
     title: 'Simulado USMLE',
@@ -277,16 +382,59 @@ const pt: T = {
     yourAnswer: 'Sua resposta',
     reviewFlagged: 'Revisar marcadas',
     allQuestions: 'Todas as questões',
+    configSubtitle: 'Condições reais do USMLE — 1 min 20 seg por questão, sem gabarito durante a prova',
+    numQuestions: 'Número de questões',
+    totalTime: 'Tempo total',
+    available: 'questões disponíveis com esses filtros',
+    willDraw: 'Serão sorteadas',
+    willDrawSuffix: 'questões aleatoriamente',
+    finishConfirm: 'Finalizar simulado agora?',
+    flaggedForReview: 'Marcada para revisão',
+    removeFlag: 'Remover flag',
+    completed: 'Simulado Concluído',
+    timeUsedOf: 'Tempo utilizado',
+    of: 'de',
+    perSubject: 'Desempenho por Especialidade',
+    flaggedSection: 'Questões marcadas para revisão',
+    newExam: '← Novo simulado',
+    answeredLabel: 'respondidas',
+    flaggedLabel: 'marcadas',
+    notAnswered: 'Não respondida',
+    blank: 'em branco',
   },
   dashboard: {
     greeting: 'Bom dia',
+    greetingMorning: 'Bom dia',
+    greetingAfternoon: 'Boa tarde',
+    greetingEvening: 'Boa noite',
     todayQuestions: 'Questões hoje',
+    accuracyToday: '% Acerto hoje',
     todayFlashcards: 'Flashcards hoje',
+    totalAnswered: 'Total respondidas',
+    weeklyTime: 'Tempo esta semana',
     weeklyActivity: 'Atividade Semanal',
     subjectProgress: 'Progresso por Especialidade',
+    recentPerformance: 'Desempenho Recente (7 dias)',
     practiceQuestions: 'Praticar Questões',
     reviewFlashcards: 'Revisar Flashcards',
     dueFlashcards: 'Flashcards devidos',
+    daysToMatch: 'dias para o seu Match',
+    consecutiveDays: 'dias consecutivos',
+    sinceBeginning: 'desde o início',
+    estimated: 'estimado',
+    resumeWhere: 'Continuar de onde parou',
+    weakestSpecialty: 'Especialidade mais fraca',
+    availableQ: 'questões disponíveis',
+    daysRemaining: 'dias restantes',
+    lastDayWeek: 'Último dia da semana',
+    usmleBank: 'Banco USMLE Step 1, 2CK e 3',
+    cardsToReview: 'cards para revisar',
+    motivDone: '🏆 Meta da semana atingida! Excelente desempenho!',
+    motivAlmost: '💪 Ótimo progresso! Você está quase lá.',
+    motivGoing: '📈 Bom início! Mantenha o ritmo.',
+    motivFocus: '🎯 Foco! Você ainda tem tempo para atingir a meta.',
+    thanYesterday: 'que ontem',
+    sameAsYesterday: 'igual a ontem',
   },
   perfil: {
     title: 'Meu Perfil',
@@ -340,6 +488,7 @@ const en: T = {
     prev: 'Previous',
     save: 'Save',
     saving: 'Saving...',
+    saveChanges: 'Save changes',
     edit: 'Edit',
     cancel: 'Cancel',
     createFlashcard: 'Create flashcard',
@@ -370,6 +519,7 @@ const en: T = {
     translateQuestion: 'Translate question',
     translateExplanation: 'Translate explanation',
     translationLabel: 'Translation',
+    translationOf: 'Explanation translation',
   },
   msg: {
     flashcardSaved: '✓ Flashcard saved!',
@@ -392,6 +542,7 @@ const en: T = {
     generateFlashcard: '🃏 Create flashcard from this question',
     prevQuestion: '← Previous',
     nextQuestion: 'Next →',
+    nextQuestionBtn: 'Next question →',
     filter: 'Filter',
     allSteps: 'All steps',
     allSubjects: 'All subjects',
@@ -399,6 +550,14 @@ const en: T = {
     unanswered: 'Unanswered',
     answered: 'Answered',
     answeredCount: 'answered',
+    difficulty: 'Difficulty',
+    specialtyFilter: 'Subject',
+    questionsFound: 'questions found',
+    answeredCorrectly: '✓ Answered correctly',
+    answeredIncorrectly: '✗ Answered incorrectly',
+    autoFlashcard: '📚 Flashcard automatically created for review',
+    verifying: 'Verifying...',
+    saveNote: 'Save note',
   },
   flashcards: {
     title: 'Flashcards',
@@ -414,6 +573,26 @@ const en: T = {
     generating: 'Generating...',
     noCards: 'No flashcards yet.',
     allDone: 'All done!',
+    sessionDone: 'Session complete!',
+    reviewedCount: 'You reviewed',
+    sm2Note: 'The SM-2 algorithm has scheduled the next reviews.',
+    backToBrowse: 'Back to flashcards',
+    reviewing: 'Reviewing Flashcards',
+    cardsForToday: 'cards for today',
+    exitReview: '← Exit review',
+    clickReveal: 'Click to reveal',
+    clickForBack: 'Click to see back',
+    howDidYouDo: 'How did you do?',
+    generateAI: '✨ Generate with AI',
+    startReview: 'Start review',
+    totalCards: 'cards total',
+    dueReviewBadge: '⏰ Due for review',
+    upToDateBadge: '✓ Up to date',
+    interval: 'Interval',
+    ease: 'Ease',
+    nextReview: 'Next',
+    noCardsSubject: 'No flashcards found for this subject.',
+    allSubjects: 'All',
   },
   simulado: {
     title: 'USMLE Exam Mode',
@@ -432,16 +611,59 @@ const en: T = {
     yourAnswer: 'Your answer',
     reviewFlagged: 'Review flagged',
     allQuestions: 'All questions',
+    configSubtitle: 'Real USMLE conditions — 1 min 20 sec per question, no answer key during the exam',
+    numQuestions: 'Number of questions',
+    totalTime: 'Total time',
+    available: 'questions available with these filters',
+    willDraw: 'Will draw',
+    willDrawSuffix: 'questions randomly',
+    finishConfirm: 'Finish exam now?',
+    flaggedForReview: 'Flagged for review',
+    removeFlag: 'Remove flag',
+    completed: 'Exam Complete',
+    timeUsedOf: 'Time used',
+    of: 'of',
+    perSubject: 'Performance by Subject',
+    flaggedSection: 'Questions flagged for review',
+    newExam: '← New exam',
+    answeredLabel: 'answered',
+    flaggedLabel: 'flagged',
+    notAnswered: 'Not answered',
+    blank: 'blank',
   },
   dashboard: {
     greeting: 'Good morning',
+    greetingMorning: 'Good morning',
+    greetingAfternoon: 'Good afternoon',
+    greetingEvening: 'Good evening',
     todayQuestions: "Today's questions",
+    accuracyToday: "Today's accuracy",
     todayFlashcards: "Today's flashcards",
+    totalAnswered: 'Total answered',
+    weeklyTime: 'Time this week',
     weeklyActivity: 'Weekly Activity',
     subjectProgress: 'Progress by Subject',
+    recentPerformance: 'Recent Performance (7 days)',
     practiceQuestions: 'Practice Questions',
     reviewFlashcards: 'Review Flashcards',
     dueFlashcards: 'Flashcards due',
+    daysToMatch: 'days to your Match',
+    consecutiveDays: 'consecutive days',
+    sinceBeginning: 'since the beginning',
+    estimated: 'estimated',
+    resumeWhere: 'Continue where you left off',
+    weakestSpecialty: 'Weakest subject',
+    availableQ: 'questions available',
+    daysRemaining: 'days remaining',
+    lastDayWeek: 'Last day of the week',
+    usmleBank: 'USMLE Step 1, 2CK & 3 bank',
+    cardsToReview: 'cards to review',
+    motivDone: '🏆 Weekly goal reached! Excellent performance!',
+    motivAlmost: "💪 Great progress! You're almost there.",
+    motivGoing: '📈 Good start! Keep the pace.',
+    motivFocus: '🎯 Focus! You still have time to reach your goal.',
+    thanYesterday: 'than yesterday',
+    sameAsYesterday: 'same as yesterday',
   },
   perfil: {
     title: 'My Profile',
@@ -495,6 +717,7 @@ const es: T = {
     prev: 'Anterior',
     save: 'Guardar',
     saving: 'Guardando...',
+    saveChanges: 'Guardar cambios',
     edit: 'Editar',
     cancel: 'Cancelar',
     createFlashcard: 'Crear flashcard',
@@ -525,6 +748,7 @@ const es: T = {
     translateQuestion: 'Traducir pregunta',
     translateExplanation: 'Traducir explicación',
     translationLabel: '🇪🇸 Traducción en Español',
+    translationOf: 'Traducción de la explicación',
   },
   msg: {
     flashcardSaved: '✓ ¡Flashcard guardado!',
@@ -547,6 +771,7 @@ const es: T = {
     generateFlashcard: '🃏 Crear flashcard de esta pregunta',
     prevQuestion: '← Anterior',
     nextQuestion: 'Siguiente →',
+    nextQuestionBtn: 'Siguiente pregunta →',
     filter: 'Filtrar',
     allSteps: 'Todos los steps',
     allSubjects: 'Todas las especialidades',
@@ -554,6 +779,14 @@ const es: T = {
     unanswered: 'Sin responder',
     answered: 'Respondidas',
     answeredCount: 'respondidas',
+    difficulty: 'Dificultad',
+    specialtyFilter: 'Especialidad',
+    questionsFound: 'preguntas encontradas',
+    answeredCorrectly: '✓ Respondida correctamente',
+    answeredIncorrectly: '✗ Respondida incorrectamente',
+    autoFlashcard: '📚 Flashcard creado automáticamente para revisión',
+    verifying: 'Verificando...',
+    saveNote: 'Guardar nota',
   },
   flashcards: {
     title: 'Flashcards',
@@ -569,6 +802,26 @@ const es: T = {
     generating: 'Generando...',
     noCards: 'Sin flashcards todavía.',
     allDone: '¡Todo completado!',
+    sessionDone: '¡Sesión completada!',
+    reviewedCount: 'Revisaste',
+    sm2Note: 'El algoritmo SM-2 ha programado las próximas revisiones.',
+    backToBrowse: 'Volver a flashcards',
+    reviewing: 'Revisando Flashcards',
+    cardsForToday: 'tarjetas para hoy',
+    exitReview: '← Salir de la revisión',
+    clickReveal: 'Haz clic para revelar',
+    clickForBack: 'Haz clic para ver el reverso',
+    howDidYouDo: '¿Cómo te fue?',
+    generateAI: '✨ Generar con IA',
+    startReview: 'Iniciar revisión',
+    totalCards: 'tarjetas en total',
+    dueReviewBadge: '⏰ Para revisar',
+    upToDateBadge: '✓ Al día',
+    interval: 'Intervalo',
+    ease: 'Facilidad',
+    nextReview: 'Próxima',
+    noCardsSubject: 'No se encontraron flashcards para esta especialidad.',
+    allSubjects: 'Todas',
   },
   simulado: {
     title: 'Simulacro USMLE',
@@ -587,16 +840,59 @@ const es: T = {
     yourAnswer: 'Tu respuesta',
     reviewFlagged: 'Revisar marcadas',
     allQuestions: 'Todas las preguntas',
+    configSubtitle: 'Condiciones reales del USMLE — 1 min 20 seg por pregunta, sin respuestas durante el examen',
+    numQuestions: 'Número de preguntas',
+    totalTime: 'Tiempo total',
+    available: 'preguntas disponibles con estos filtros',
+    willDraw: 'Se seleccionarán',
+    willDrawSuffix: 'preguntas aleatoriamente',
+    finishConfirm: '¿Finalizar simulacro ahora?',
+    flaggedForReview: 'Marcada para revisión',
+    removeFlag: 'Quitar marca',
+    completed: 'Simulacro Completado',
+    timeUsedOf: 'Tiempo utilizado',
+    of: 'de',
+    perSubject: 'Rendimiento por Especialidad',
+    flaggedSection: 'Preguntas marcadas para revisión',
+    newExam: '← Nuevo simulacro',
+    answeredLabel: 'respondidas',
+    flaggedLabel: 'marcadas',
+    notAnswered: 'Sin responder',
+    blank: 'en blanco',
   },
   dashboard: {
     greeting: 'Buenos días',
+    greetingMorning: 'Buenos días',
+    greetingAfternoon: 'Buenas tardes',
+    greetingEvening: 'Buenas noches',
     todayQuestions: 'Preguntas hoy',
+    accuracyToday: 'Precisión hoy',
     todayFlashcards: 'Flashcards hoy',
+    totalAnswered: 'Total respondidas',
+    weeklyTime: 'Tiempo esta semana',
     weeklyActivity: 'Actividad Semanal',
     subjectProgress: 'Progreso por Especialidad',
+    recentPerformance: 'Rendimiento Reciente (7 días)',
     practiceQuestions: 'Practicar Preguntas',
     reviewFlashcards: 'Revisar Flashcards',
     dueFlashcards: 'Flashcards pendientes',
+    daysToMatch: 'días para tu Match',
+    consecutiveDays: 'días consecutivos',
+    sinceBeginning: 'desde el inicio',
+    estimated: 'estimado',
+    resumeWhere: 'Continuar desde donde lo dejó',
+    weakestSpecialty: 'Especialidad más débil',
+    availableQ: 'preguntas disponibles',
+    daysRemaining: 'días restantes',
+    lastDayWeek: 'Último día de la semana',
+    usmleBank: 'Banco USMLE Step 1, 2CK y 3',
+    cardsToReview: 'tarjetas para revisar',
+    motivDone: '🏆 ¡Meta semanal alcanzada! ¡Excelente desempeño!',
+    motivAlmost: '💪 ¡Gran progreso! Estás casi ahí.',
+    motivGoing: '📈 ¡Buen comienzo! Mantén el ritmo.',
+    motivFocus: '🎯 ¡Enfócate! Todavía tienes tiempo para alcanzar tu meta.',
+    thanYesterday: 'que ayer',
+    sameAsYesterday: 'igual que ayer',
   },
   perfil: {
     title: 'Mi Perfil',

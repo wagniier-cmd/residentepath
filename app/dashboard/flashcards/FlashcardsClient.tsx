@@ -3,7 +3,8 @@
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { calculateSM2, isDueForReview, getInitialSM2 } from '@/lib/sm2'
+import { calculateSM2, isDueForReview } from '@/lib/sm2'
+import { useTranslation } from '@/lib/i18n/LanguageContext'
 import type { Flashcard, FlashcardRating } from '@/types'
 
 interface UserState {
@@ -24,18 +25,19 @@ type Mode = 'browse' | 'review'
 
 export default function FlashcardsClient({ flashcards, userStates: initialStates, userId }: Props) {
   const router = useRouter()
+  const { t } = useTranslation()
   const [userStates, setUserStates] = useState<UserState[]>(initialStates)
   const [mode, setMode] = useState<Mode>('browse')
   const [flipped, setFlipped] = useState(false)
   const [reviewIndex, setReviewIndex] = useState(0)
   const [sessionDone, setSessionDone] = useState(false)
   const [sessionCount, setSessionCount] = useState(0)
-  const [filterSubject, setFilterSubject] = useState('Todas')
+  const [filterSubject, setFilterSubject] = useState(t.flashcards.allSubjects)
 
   const subjects = useMemo(() => {
     const s = new Set(flashcards.map(f => f.subject))
-    return ['Todas', ...Array.from(s).sort()]
-  }, [flashcards])
+    return [t.flashcards.allSubjects, ...Array.from(s).sort()]
+  }, [flashcards, t.flashcards.allSubjects])
 
   function getState(id: string): UserState | undefined {
     return userStates.find(s => s.flashcard_id === id)
@@ -43,20 +45,20 @@ export default function FlashcardsClient({ flashcards, userStates: initialStates
 
   function isDue(card: Flashcard): boolean {
     const state = getState(card.id)
-    if (!state) return true // never reviewed = due
+    if (!state) return true
     return isDueForReview(state.next_due)
   }
 
   const dueCards = useMemo(() => {
     return flashcards.filter(f => {
-      if (filterSubject !== 'Todas' && f.subject !== filterSubject) return false
+      if (filterSubject !== t.flashcards.allSubjects && f.subject !== filterSubject) return false
       return isDue(f)
     })
-  }, [flashcards, userStates, filterSubject])
+  }, [flashcards, userStates, filterSubject, t.flashcards.allSubjects])
 
   const allCards = useMemo(() => {
-    return flashcards.filter(f => filterSubject === 'Todas' || f.subject === filterSubject)
-  }, [flashcards, filterSubject])
+    return flashcards.filter(f => filterSubject === t.flashcards.allSubjects || f.subject === filterSubject)
+  }, [flashcards, filterSubject, t.flashcards.allSubjects])
 
   const reviewCard = dueCards[reviewIndex]
 
@@ -88,11 +90,7 @@ export default function FlashcardsClient({ flashcards, userStates: initialStates
     }
 
     const supabase = createClient()
-
-    // Upsert state
     await supabase.from('user_flashcard_state').upsert(newState)
-
-    // Insert review log
     await supabase.from('user_flashcard_reviews').insert({
       user_id: userId,
       flashcard_id: reviewCard.id,
@@ -102,7 +100,6 @@ export default function FlashcardsClient({ flashcards, userStates: initialStates
       ease_factor: result.easeFactor,
     })
 
-    // Update local state
     setUserStates(prev => {
       const filtered = prev.filter(s => s.flashcard_id !== reviewCard.id)
       return [...filtered, { flashcard_id: reviewCard.id, next_due: result.nextDue.toISOString(), interval: result.interval, ease_factor: result.easeFactor }]
@@ -124,14 +121,16 @@ export default function FlashcardsClient({ flashcards, userStates: initialStates
         <div className="animate-fade-in">
           <div className="max-w-2xl mx-auto text-center py-16">
             <div className="text-6xl mb-4">🎉</div>
-            <h2 className="text-2xl font-bold text-primary-700 mb-2">Sessão concluída!</h2>
-            <p className="text-muted-foreground mb-2">Você revisou <strong>{sessionCount}</strong> flashcard{sessionCount !== 1 ? 's' : ''}.</p>
-            <p className="text-muted-foreground text-sm mb-8">O algoritmo SM-2 já agendou as próximas revisões para você.</p>
+            <h2 className="text-2xl font-bold text-primary-700 mb-2">{t.flashcards.sessionDone}</h2>
+            <p className="text-muted-foreground mb-2">
+              {t.flashcards.reviewedCount} <strong>{sessionCount}</strong> flashcard{sessionCount !== 1 ? 's' : ''}.
+            </p>
+            <p className="text-muted-foreground text-sm mb-8">{t.flashcards.sm2Note}</p>
             <button
               onClick={() => setMode('browse')}
               className="px-6 py-2.5 bg-primary-700 text-white rounded-xl text-sm font-medium hover:bg-primary-800 transition-colors"
             >
-              Voltar ao painel de flashcards
+              {t.flashcards.backToBrowse}
             </button>
           </div>
         </div>
@@ -142,18 +141,17 @@ export default function FlashcardsClient({ flashcards, userStates: initialStates
       <div className="animate-fade-in">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl text-primary-700">Revisando Flashcards</h1>
-            <p className="text-muted-foreground text-sm">{reviewIndex + 1} de {dueCards.length} cards para hoje</p>
+            <h1 className="text-2xl text-primary-700">{t.flashcards.reviewing}</h1>
+            <p className="text-muted-foreground text-sm">{reviewIndex + 1} de {dueCards.length} {t.flashcards.cardsForToday}</p>
           </div>
           <button
             onClick={() => setMode('browse')}
             className="text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
-            ← Sair da revisão
+            {t.flashcards.exitReview}
           </button>
         </div>
 
-        {/* Progress bar */}
         <div className="h-1.5 bg-gray-100 rounded-full mb-8 overflow-hidden">
           <div
             className="h-full bg-primary-700 rounded-full transition-all duration-500"
@@ -161,7 +159,6 @@ export default function FlashcardsClient({ flashcards, userStates: initialStates
           />
         </div>
 
-        {/* Card */}
         <div className="max-w-2xl mx-auto">
           <div
             className={`bg-white rounded-2xl border-2 border-border p-8 min-h-[280px] flex flex-col cursor-pointer transition-all duration-200 ${!flipped ? 'hover:border-primary/30 hover:shadow-md' : ''}`}
@@ -170,13 +167,13 @@ export default function FlashcardsClient({ flashcards, userStates: initialStates
             <div className="flex items-center justify-between mb-4">
               <span className="text-xs font-medium bg-primary-50 text-primary-700 px-2.5 py-1 rounded-full">{reviewCard?.subject}</span>
               {!flipped && (
-                <span className="text-xs text-muted-foreground">Clique para revelar</span>
+                <span className="text-xs text-muted-foreground">{t.flashcards.clickReveal}</span>
               )}
             </div>
 
             <div className="flex-1">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-                {!flipped ? 'FRENTE' : 'VERSO'}
+                {!flipped ? t.flashcards.front.toUpperCase() : t.flashcards.back.toUpperCase()}
               </p>
               <p className="text-foreground text-base leading-relaxed">
                 {!flipped ? reviewCard?.front : reviewCard?.back}
@@ -189,21 +186,20 @@ export default function FlashcardsClient({ flashcards, userStates: initialStates
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                 </svg>
-                Clique para ver o verso
+                {t.flashcards.clickForBack}
               </div>
             )}
           </div>
 
-          {/* Rating buttons */}
           {flipped && (
             <div className="mt-6 animate-fade-in">
-              <p className="text-center text-sm text-muted-foreground mb-4">Como você se saiu?</p>
+              <p className="text-center text-sm text-muted-foreground mb-4">{t.flashcards.howDidYouDo}</p>
               <div className="grid grid-cols-4 gap-3">
                 {[
-                  { rating: 'again' as FlashcardRating, label: 'De Novo', sub: '< 1 min', color: 'bg-red-50 hover:bg-red-100 text-red-700 border-red-200' },
-                  { rating: 'hard' as FlashcardRating, label: 'Difícil', sub: '< 6 min', color: 'bg-orange-50 hover:bg-orange-100 text-orange-700 border-orange-200' },
-                  { rating: 'good' as FlashcardRating, label: 'Bom', sub: '4 dias', color: 'bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200' },
-                  { rating: 'easy' as FlashcardRating, label: 'Fácil', sub: '7 dias', color: 'bg-green-50 hover:bg-green-100 text-green-700 border-green-200' },
+                  { rating: 'again' as FlashcardRating, label: t.flashcards.again, sub: '< 1 min', color: 'bg-red-50 hover:bg-red-100 text-red-700 border-red-200' },
+                  { rating: 'hard' as FlashcardRating, label: t.flashcards.hard, sub: '< 6 min', color: 'bg-orange-50 hover:bg-orange-100 text-orange-700 border-orange-200' },
+                  { rating: 'good' as FlashcardRating, label: t.flashcards.good, sub: '4 dias', color: 'bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200' },
+                  { rating: 'easy' as FlashcardRating, label: t.flashcards.easy, sub: '7 dias', color: 'bg-green-50 hover:bg-green-100 text-green-700 border-green-200' },
                 ].map(btn => (
                   <button
                     key={btn.rating}
@@ -227,9 +223,9 @@ export default function FlashcardsClient({ flashcards, userStates: initialStates
     <div className="animate-fade-in">
       <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-3xl text-primary-700 mb-1">Flashcards</h1>
+          <h1 className="text-3xl text-primary-700 mb-1">{t.flashcards.title}</h1>
           <p className="text-muted-foreground text-sm">
-            {flashcards.length} cards no total · {dueCards.length} para revisar hoje
+            {flashcards.length} {t.flashcards.totalCards} · {dueCards.length} {t.flashcards.dueToday}
           </p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
@@ -237,7 +233,7 @@ export default function FlashcardsClient({ flashcards, userStates: initialStates
             onClick={() => router.push('/dashboard/flashcards/generate')}
             className="flex items-center gap-2 px-5 py-2.5 bg-white border border-border text-primary-700 rounded-xl text-sm font-medium hover:bg-primary-50 transition-colors"
           >
-            ✨ Gerar com IA
+            {t.flashcards.generateAI}
           </button>
           {dueCards.length > 0 && (
             <button
@@ -248,15 +244,14 @@ export default function FlashcardsClient({ flashcards, userStates: initialStates
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              Iniciar revisão ({dueCards.length})
+              {t.flashcards.startReview} ({dueCards.length})
             </button>
           )}
         </div>
       </div>
 
-      {/* Filter */}
       <div className="bg-white rounded-2xl border border-border p-4 mb-6 flex items-center gap-3 flex-wrap">
-        <span className="text-xs text-muted-foreground font-medium">Especialidade:</span>
+        <span className="text-xs text-muted-foreground font-medium">{t.flashcards.subject}:</span>
         {subjects.map(s => (
           <button
             key={s}
@@ -272,7 +267,6 @@ export default function FlashcardsClient({ flashcards, userStates: initialStates
         ))}
       </div>
 
-      {/* Cards grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {allCards.map(card => {
           const state = getState(card.id)
@@ -285,16 +279,16 @@ export default function FlashcardsClient({ flashcards, userStates: initialStates
               <div className="flex items-start justify-between gap-2 mb-3">
                 <span className="text-xs font-medium bg-primary-50 text-primary-700 px-2 py-0.5 rounded-full">{card.subject}</span>
                 <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${due ? 'bg-amber-50 text-amber-700' : 'bg-correct-light text-correct'}`}>
-                  {due ? '⏰ Para revisar' : '✓ Em dia'}
+                  {due ? t.flashcards.dueReviewBadge : t.flashcards.upToDateBadge}
                 </span>
               </div>
               <p className="text-sm font-medium text-foreground mb-2 line-clamp-2">{card.front}</p>
               <p className="text-xs text-muted-foreground line-clamp-2">{card.back}</p>
               {state && (
                 <div className="mt-3 pt-3 border-t border-border flex items-center gap-3 text-xs text-muted-foreground">
-                  <span>Intervalo: {state.interval}d</span>
-                  <span>Facilidade: {state.ease_factor.toFixed(1)}</span>
-                  {!due && <span>Próxima: {new Date(state.next_due).toLocaleDateString('pt-BR')}</span>}
+                  <span>{t.flashcards.interval}: {state.interval}d</span>
+                  <span>{t.flashcards.ease}: {state.ease_factor.toFixed(1)}</span>
+                  {!due && <span>{t.flashcards.nextReview}: {new Date(state.next_due).toLocaleDateString()}</span>}
                 </div>
               )}
             </div>
@@ -305,7 +299,7 @@ export default function FlashcardsClient({ flashcards, userStates: initialStates
       {allCards.length === 0 && (
         <div className="bg-white rounded-2xl border border-border p-12 text-center">
           <p className="text-4xl mb-3">🃏</p>
-          <p className="text-muted-foreground">Nenhum flashcard encontrado para esta especialidade.</p>
+          <p className="text-muted-foreground">{t.flashcards.noCardsSubject}</p>
         </div>
       )}
     </div>

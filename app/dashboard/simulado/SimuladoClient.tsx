@@ -9,7 +9,7 @@ import type { Question, USMLEStep, QuestionSubject } from '@/types'
 
 const STEPS: (USMLEStep | 'Todos')[] = ['Todos', 'Step 1', 'Step 2CK', 'Step 3']
 const COUNTS = [10, 20, 40]
-const SECS_PER_QUESTION = 80 // 1min 20s — USMLE standard
+const SECS_PER_QUESTION = 80
 
 interface Props {
   questions: Question[]
@@ -31,19 +31,17 @@ interface SubjectResult {
 }
 
 export default function SimuladoClient({ questions, userId }: Props) {
-  const { language } = useTranslation()
+  const { t, language } = useTranslation()
   const translateTarget = TRANSLATE_TARGET[language] ?? 'pt'
   const showTranslateBtn = TRANSLATE_TARGET[language] !== null
   const flag = language === 'pt' ? '🇧🇷' : language === 'es' ? '🇪🇸' : '🌐'
-  const { translate, translations, loading: tlLoading, visible, reset: resetTranslations } = useTranslate(translateTarget)
+  const { translate, translations: tl, loading: tlLoading, visible, reset: resetTranslations } = useTranslate(translateTarget)
   const [mode, setMode] = useState<Mode>('config')
 
-  // Config state
   const [cfgStep, setCfgStep] = useState<USMLEStep | 'Todos'>('Todos')
   const [cfgSubject, setCfgSubject] = useState<QuestionSubject | 'Todas'>('Todas')
   const [cfgCount, setCfgCount] = useState(20)
 
-  // Exam state
   const [examQuestions, setExamQuestions] = useState<Question[]>([])
   const [currentIdx, setCurrentIdx] = useState(0)
   const [answers, setAnswers] = useState<Answer[]>([])
@@ -57,7 +55,6 @@ export default function SimuladoClient({ questions, userId }: Props) {
   const finish = useCallback(async (answersSnapshot: Answer[], qs: Question[]) => {
     if (timerRef.current) clearInterval(timerRef.current)
     setFinished(true)
-
     const supabase = createClient()
     const rows = answersSnapshot
       .filter(a => a.selected !== null)
@@ -70,23 +67,17 @@ export default function SimuladoClient({ questions, userId }: Props) {
           is_correct: a.selected === q.correct_answer,
         }
       })
-
     if (rows.length > 0) {
       await supabase.from('user_question_attempts').upsert(rows, { onConflict: 'user_id,question_id' })
     }
-
     setMode('results')
   }, [userId])
 
-  // Timer
   useEffect(() => {
     if (mode !== 'exam' || finished) return
     timerRef.current = setInterval(() => {
       setTimeLeft(prev => {
-        if (prev <= 1) {
-          finish(answers, examQuestions)
-          return 0
-        }
+        if (prev <= 1) { finish(answers, examQuestions); return 0 }
         return prev - 1
       })
     }, 1000)
@@ -99,10 +90,7 @@ export default function SimuladoClient({ questions, userId }: Props) {
       if (cfgSubject !== 'Todas' && q.subject !== cfgSubject) return false
       return true
     })
-
-    // Shuffle
     pool = pool.sort(() => Math.random() - 0.5).slice(0, cfgCount)
-
     const total = pool.length * SECS_PER_QUESTION
     setExamQuestions(pool)
     setAnswers(pool.map(q => ({ questionId: q.id, selected: null, flagged: false })))
@@ -123,11 +111,8 @@ export default function SimuladoClient({ questions, userId }: Props) {
 
   function goNext() {
     resetTranslations()
-    if (currentIdx < examQuestions.length - 1) {
-      setCurrentIdx(i => i + 1)
-    } else {
-      finish(answers, examQuestions)
-    }
+    if (currentIdx < examQuestions.length - 1) setCurrentIdx(i => i + 1)
+    else finish(answers, examQuestions)
   }
 
   function goPrev() {
@@ -146,23 +131,19 @@ export default function SimuladoClient({ questions, userId }: Props) {
       <div className="animate-fade-in max-w-xl mx-auto">
         <div className="mb-8 text-center">
           <div className="text-5xl mb-3">⏱️</div>
-          <h1 className="text-3xl text-primary-700">Modo Simulado</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Condições reais do USMLE — 1 min 20 seg por questão, sem gabarito durante a prova
-          </p>
+          <h1 className="text-3xl text-primary-700">{t.simulado.title}</h1>
+          <p className="text-muted-foreground text-sm mt-1">{t.simulado.configSubtitle}</p>
         </div>
 
         <div className="bg-white rounded-2xl border border-border p-6 space-y-5">
           {/* Step */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">Step</label>
+            <label className="block text-sm font-medium text-foreground mb-2">{t.simulado.step}</label>
             <div className="flex flex-wrap gap-2">
               {STEPS.map(s => (
                 <button key={s} onClick={() => setCfgStep(s)}
                   className={`px-4 py-2 rounded-xl text-sm font-medium border-2 transition-all ${
-                    cfgStep === s
-                      ? 'bg-primary-700 border-primary-700 text-white'
-                      : 'border-border text-muted-foreground hover:border-primary-300 hover:text-foreground'
+                    cfgStep === s ? 'bg-primary-700 border-primary-700 text-white' : 'border-border text-muted-foreground hover:border-primary-300 hover:text-foreground'
                   }`}>
                   {s}
                 </button>
@@ -172,7 +153,7 @@ export default function SimuladoClient({ questions, userId }: Props) {
 
           {/* Subject */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">Especialidade</label>
+            <label className="block text-sm font-medium text-foreground mb-2">{t.simulado.specialty}</label>
             <select value={cfgSubject}
               onChange={e => setCfgSubject(e.target.value as QuestionSubject | 'Todas')}
               className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white">
@@ -182,14 +163,12 @@ export default function SimuladoClient({ questions, userId }: Props) {
 
           {/* Count */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">Número de questões</label>
+            <label className="block text-sm font-medium text-foreground mb-2">{t.simulado.numQuestions}</label>
             <div className="flex gap-2">
               {COUNTS.map(n => (
                 <button key={n} onClick={() => setCfgCount(n)}
                   className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${
-                    cfgCount === n
-                      ? 'bg-primary-700 border-primary-700 text-white'
-                      : 'border-border text-muted-foreground hover:border-primary-300 hover:text-foreground'
+                    cfgCount === n ? 'bg-primary-700 border-primary-700 text-white' : 'border-border text-muted-foreground hover:border-primary-300 hover:text-foreground'
                   }`}>
                   {n}
                 </button>
@@ -199,9 +178,9 @@ export default function SimuladoClient({ questions, userId }: Props) {
 
           {/* Info */}
           <div className="bg-primary-50 rounded-xl p-4 space-y-1 text-xs text-primary-700">
-            <p>📋 <strong>{available}</strong> questões disponíveis com esses filtros</p>
-            <p>⏱️ Tempo total: <strong>{formatTime(Math.min(cfgCount, available) * SECS_PER_QUESTION)}</strong></p>
-            <p>❓ Serão sorteadas <strong>{Math.min(cfgCount, available)}</strong> questões aleatoriamente</p>
+            <p>📋 <strong>{available}</strong> {t.simulado.available}</p>
+            <p>⏱️ {t.simulado.totalTime}: <strong>{formatTime(Math.min(cfgCount, available) * SECS_PER_QUESTION)}</strong></p>
+            <p>❓ {t.simulado.willDraw} <strong>{Math.min(cfgCount, available)}</strong> {t.simulado.willDrawSuffix}</p>
           </div>
 
           <button
@@ -212,7 +191,7 @@ export default function SimuladoClient({ questions, userId }: Props) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            Iniciar Simulado
+            {t.simulado.start}
           </button>
         </div>
       </div>
@@ -238,7 +217,6 @@ export default function SimuladoClient({ questions, userId }: Props) {
 
     return (
       <div className="animate-fade-in">
-        {/* Header — timer + progress */}
         <div className="bg-white rounded-2xl border border-border p-4 mb-4">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-3">
@@ -246,29 +224,24 @@ export default function SimuladoClient({ questions, userId }: Props) {
                 {formatTime(timeLeft)}
               </span>
               <span className="text-xs text-muted-foreground">
-                {answeredCount}/{examQuestions.length} respondidas
-                {flaggedCount > 0 && <span className="ml-2 text-amber-600">🚩 {flaggedCount} marcadas</span>}
+                {answeredCount}/{examQuestions.length} {t.simulado.answeredLabel}
+                {flaggedCount > 0 && <span className="ml-2 text-amber-600">🚩 {flaggedCount} {t.simulado.flaggedLabel}</span>}
               </span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">
-                {currentIdx + 1} / {examQuestions.length}
-              </span>
+              <span className="text-sm text-muted-foreground">{currentIdx + 1} / {examQuestions.length}</span>
               <button
-                onClick={() => { if (confirm('Finalizar simulado agora?')) finish(answers, examQuestions) }}
+                onClick={() => { if (confirm(t.simulado.finishConfirm)) finish(answers, examQuestions) }}
                 className="px-3 py-1.5 text-xs font-medium text-incorrect border border-incorrect/30 rounded-lg hover:bg-incorrect-light transition-colors">
-                Finalizar
+                {t.simulado.finishExam}
               </button>
             </div>
           </div>
 
-          {/* Timer bar */}
           <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden mb-2">
-            <div className={`h-full rounded-full transition-all duration-1000 ${timerColor}`}
-              style={{ width: `${pct}%` }} />
+            <div className={`h-full rounded-full transition-all duration-1000 ${timerColor}`} style={{ width: `${pct}%` }} />
           </div>
 
-          {/* Question dot nav */}
           <div className="flex flex-wrap gap-1 mt-2">
             {examQuestions.map((_, i) => {
               const a = answers[i]
@@ -276,13 +249,10 @@ export default function SimuladoClient({ questions, userId }: Props) {
               return (
                 <button key={i} onClick={() => setCurrentIdx(i)}
                   className={`w-6 h-6 rounded text-xs font-medium transition-all ${
-                    isCurrent
-                      ? 'bg-primary-700 text-white'
-                      : a.flagged
-                      ? 'bg-amber-100 text-amber-700 border border-amber-300'
-                      : a.selected
-                      ? 'bg-primary-100 text-primary-700'
-                      : 'bg-gray-100 text-gray-500'
+                    isCurrent ? 'bg-primary-700 text-white'
+                    : a.flagged ? 'bg-amber-100 text-amber-700 border border-amber-300'
+                    : a.selected ? 'bg-primary-100 text-primary-700'
+                    : 'bg-gray-100 text-gray-500'
                   }`}>
                   {i + 1}
                 </button>
@@ -291,7 +261,6 @@ export default function SimuladoClient({ questions, userId }: Props) {
           </div>
         </div>
 
-        {/* Question card */}
         <div className="bg-white rounded-2xl border border-border overflow-hidden">
           <div className="px-6 py-4 bg-gray-50 border-b border-border flex items-center gap-2 flex-wrap">
             <span className="text-xs px-2.5 py-1 rounded-full font-medium bg-primary-100 text-primary-700">{question.usmle_step}</span>
@@ -299,7 +268,7 @@ export default function SimuladoClient({ questions, userId }: Props) {
             <span className="text-xs px-2.5 py-1 rounded-full font-medium bg-gray-100 text-gray-600">{question.difficulty}</span>
             {answer.flagged && (
               <span className="text-xs px-2.5 py-1 rounded-full font-medium bg-amber-50 text-amber-700 border border-amber-200">
-                🚩 Marcada para revisão
+                🚩 {t.simulado.flaggedForReview}
               </span>
             )}
           </div>
@@ -308,13 +277,12 @@ export default function SimuladoClient({ questions, userId }: Props) {
             <p className="text-foreground leading-relaxed text-base">{question.stem}</p>
           </div>
 
-          {/* Inline translation */}
           {showTranslateBtn && visible[`stem-${question.id}`] && (
             <div className="mx-6 mb-2 px-4 py-3 rounded-xl bg-blue-50 border border-blue-100">
-              <p className="text-xs font-semibold text-blue-600 mb-1">{flag} Tradução</p>
+              <p className="text-xs font-semibold text-blue-600 mb-1">{flag} {t.translate.translationLabel}</p>
               {tlLoading[`stem-${question.id}`]
-                ? <p className="text-xs text-muted-foreground animate-pulse">Traduzindo...</p>
-                : <p className="text-sm text-foreground leading-relaxed">{translations[`stem-${question.id}`]}</p>
+                ? <p className="text-xs text-muted-foreground animate-pulse">{t.translate.translating}</p>
+                : <p className="text-sm text-foreground leading-relaxed">{tl[`stem-${question.id}`]}</p>
               }
             </div>
           )}
@@ -330,7 +298,7 @@ export default function SimuladoClient({ questions, userId }: Props) {
                   ? <svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
                   : <span>{flag}</span>
                 }
-                {visible[`stem-${question.id}`] ? 'Ocultar' : 'Traduzir'}
+                {visible[`stem-${question.id}`] ? t.translate.hide : t.translate.translateTo}
               </button>
             </div>
           )}
@@ -360,7 +328,7 @@ export default function SimuladoClient({ questions, userId }: Props) {
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
-              Anterior
+              {t.btn.prev}
             </button>
 
             <button onClick={toggleFlag}
@@ -369,12 +337,12 @@ export default function SimuladoClient({ questions, userId }: Props) {
                   ? 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100'
                   : 'border-border text-muted-foreground hover:border-amber-300 hover:text-amber-600'
               }`}>
-              🚩 {answer.flagged ? 'Remover flag' : 'Marcar para revisão'}
+              🚩 {answer.flagged ? t.simulado.removeFlag : t.simulado.flagQuestion}
             </button>
 
             <button onClick={goNext}
               className="flex items-center gap-1.5 text-sm font-medium px-5 py-2 bg-primary-700 text-white rounded-xl hover:bg-primary-800 transition-colors">
-              {currentIdx === examQuestions.length - 1 ? 'Finalizar' : 'Próxima'}
+              {currentIdx === examQuestions.length - 1 ? t.simulado.finishExam : t.btn.next}
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
@@ -393,7 +361,6 @@ export default function SimuladoClient({ questions, userId }: Props) {
   }).length
   const score = totalAnswered > 0 ? Math.round((totalCorrect / examQuestions.length) * 100) : 0
 
-  // Per-subject breakdown
   const subjectMap: Record<string, SubjectResult> = {}
   for (const q of examQuestions) {
     if (!subjectMap[q.subject]) subjectMap[q.subject] = { subject: q.subject, correct: 0, total: 0 }
@@ -415,19 +382,18 @@ export default function SimuladoClient({ questions, userId }: Props) {
     <div className="animate-fade-in max-w-3xl mx-auto">
       <div className="text-center mb-8">
         <div className="text-5xl mb-3">{score >= 70 ? '🎉' : score >= 50 ? '📊' : '💪'}</div>
-        <h1 className="text-3xl text-primary-700 mb-1">Simulado Concluído</h1>
+        <h1 className="text-3xl text-primary-700 mb-1">{t.simulado.completed}</h1>
         <p className="text-muted-foreground text-sm">
-          Tempo utilizado: {formatTime(timeUsed)} de {formatTime(totalTime)}
+          {t.simulado.timeUsedOf}: {formatTime(timeUsed)} {t.simulado.of} {formatTime(totalTime)}
         </p>
       </div>
 
-      {/* Score card */}
       <div className="bg-white rounded-2xl border border-border p-6 mb-6 text-center">
         <div className={`text-6xl font-bold mb-1 ${scoreColor}`}>{score}%</div>
         <p className="text-muted-foreground text-sm mb-4">
-          {totalCorrect} de {examQuestions.length} questões corretas
+          {totalCorrect} {t.simulado.of} {examQuestions.length} {t.simulado.answeredLabel}
           {totalAnswered < examQuestions.length && (
-            <span className="ml-2 text-amber-600">({examQuestions.length - totalAnswered} não respondidas)</span>
+            <span className="ml-2 text-amber-600">({examQuestions.length - totalAnswered} {t.simulado.blank})</span>
           )}
         </p>
         <div className="h-3 bg-gray-100 rounded-full overflow-hidden max-w-xs mx-auto">
@@ -435,17 +401,16 @@ export default function SimuladoClient({ questions, userId }: Props) {
             style={{ width: `${score}%` }} />
         </div>
         <div className="flex justify-center gap-6 mt-4 text-xs text-muted-foreground">
-          <span className="text-correct font-medium">✓ {totalCorrect} corretas</span>
-          <span className="text-incorrect font-medium">✗ {totalAnswered - totalCorrect} erradas</span>
+          <span className="text-correct font-medium">✓ {totalCorrect} {t.label.correct.toLowerCase()}</span>
+          <span className="text-incorrect font-medium">✗ {totalAnswered - totalCorrect} {t.label.incorrect.toLowerCase()}</span>
           {examQuestions.length - totalAnswered > 0 && (
-            <span className="text-amber-600 font-medium">— {examQuestions.length - totalAnswered} em branco</span>
+            <span className="text-amber-600 font-medium">— {examQuestions.length - totalAnswered} {t.simulado.blank}</span>
           )}
         </div>
       </div>
 
-      {/* Subject breakdown */}
       <div className="bg-white rounded-2xl border border-border p-6 mb-6">
-        <h2 className="text-base font-semibold text-primary-700 mb-4">Desempenho por Especialidade</h2>
+        <h2 className="text-base font-semibold text-primary-700 mb-4">{t.simulado.perSubject}</h2>
         <div className="space-y-3">
           {subjectResults.map(sr => {
             const pct = sr.total > 0 ? Math.round((sr.correct / sr.total) * 100) : 0
@@ -467,12 +432,11 @@ export default function SimuladoClient({ questions, userId }: Props) {
         </div>
       </div>
 
-      {/* Flagged questions */}
       {flaggedQuestions.length > 0 && (
         <div className="bg-white rounded-2xl border border-border overflow-hidden mb-6">
           <div className="px-6 py-4 border-b border-border bg-amber-50">
             <h2 className="text-base font-semibold text-amber-700">
-              🚩 Questões marcadas para revisão ({flaggedQuestions.length})
+              🚩 {t.simulado.flaggedSection} ({flaggedQuestions.length})
             </h2>
           </div>
           <div className="divide-y divide-border">
@@ -488,10 +452,14 @@ export default function SimuladoClient({ questions, userId }: Props) {
                         <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{question.subject}</span>
                         {answer.selected ? (
                           <span className={`px-2 py-0.5 rounded-full font-medium ${wasCorrect ? 'bg-correct-light text-correct' : 'bg-incorrect-light text-incorrect'}`}>
-                            {wasCorrect ? `✓ Respondeu ${answer.selected} — Correto` : `✗ Respondeu ${answer.selected} — Correto: ${question.correct_answer}`}
+                            {wasCorrect
+                              ? `✓ ${t.simulado.yourAnswer} ${answer.selected} — ${t.label.correct}`
+                              : `✗ ${t.simulado.yourAnswer} ${answer.selected} — ${t.simulado.correctAnswer}: ${question.correct_answer}`}
                           </span>
                         ) : (
-                          <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">Não respondida — Correto: {question.correct_answer}</span>
+                          <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">
+                            {t.simulado.notAnswered} — {t.simulado.correctAnswer}: {question.correct_answer}
+                          </span>
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground mt-2 line-clamp-2">{question.explanation}</p>
@@ -507,7 +475,7 @@ export default function SimuladoClient({ questions, userId }: Props) {
       <div className="flex gap-3 justify-center">
         <button onClick={() => setMode('config')}
           className="px-6 py-2.5 bg-white border border-border text-primary-700 rounded-xl text-sm font-medium hover:bg-primary-50 transition-colors">
-          ← Novo simulado
+          {t.simulado.newExam}
         </button>
       </div>
     </div>

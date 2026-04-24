@@ -19,14 +19,14 @@ interface Props {
   questions: Question[]
   attempts: Attempt[]
   userId: string
-  userPlan: UserPlan
-  answeredToday: number
+  userPlan?: UserPlan
+  answeredToday?: number
 }
 
 const STEPS = ['Todos', 'Step 1', 'Step 2CK', 'Step 3']
 const DIFFICULTIES = ['Todas', 'Fácil', 'Médio', 'Difícil']
 
-export default function QuestionsClient({ questions, attempts: initialAttempts, userId, userPlan, answeredToday }: Props) {
+export default function QuestionsClient({ questions, attempts: initialAttempts, userId }: Props) {
   const { t, language } = useTranslation()
   const translateTarget = TRANSLATE_TARGET[language] ?? 'pt'
   const showTranslateBtn = TRANSLATE_TARGET[language] !== null
@@ -46,7 +46,7 @@ export default function QuestionsClient({ questions, attempts: initialAttempts, 
   const noteSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastNoteQuestionId = useRef<string | null>(null)
 
-  const { translate, translations, loading: tlLoading, visible, reset: resetTranslations } = useTranslate(translateTarget)
+  const { translate, translations: tl, loading: tlLoading, visible, reset: resetTranslations } = useTranslate(translateTarget)
 
   const subjects = useMemo(() => {
     const s = new Set(questions.map(q => q.subject))
@@ -66,6 +66,25 @@ export default function QuestionsClient({ questions, attempts: initialAttempts, 
   const answeredIds = new Set(attempts.map(a => a.question_id))
   const totalAnswered = attempts.length
   const totalCorrect = attempts.filter(a => a.is_correct).length
+
+  const stemKey = question ? `stem-${question.id}` : ''
+  const explanationKey = question ? `explanation-${question.id}` : ''
+  const optKey = (k: string) => question ? `opt-${k}-${question.id}` : ''
+
+  function translateAll() {
+    if (!question) return
+    translate(stemKey, question.stem)
+    translate(optKey('A'), question.option_a)
+    translate(optKey('B'), question.option_b)
+    translate(optKey('C'), question.option_c)
+    translate(optKey('D'), question.option_d)
+    translate(optKey('E'), question.option_e)
+  }
+
+  const allTranslVisible = question ? !!visible[stemKey] : false
+  const anyOptLoading = question
+    ? ['A', 'B', 'C', 'D', 'E'].some(k => !!tlLoading[optKey(k)])
+    : false
 
   function nextQuestion() {
     setSelectedAnswer(null)
@@ -169,15 +188,6 @@ export default function QuestionsClient({ questions, attempts: initialAttempts, 
   }
 
   const flag = language === 'pt' ? '🇧🇷' : language === 'es' ? '🇪🇸' : '🌐'
-  const langLabel = language === 'pt' ? 'Português' : language === 'es' ? 'Español' : language
-
-  // Build a combined key for stem+options translation
-  const stemKey = question ? `stem-${question.id}` : ''
-  const explanationKey = question ? `explanation-${question.id}` : ''
-
-  const stemForTranslation = question
-    ? `${question.stem}\n\nA. ${question.option_a}\nB. ${question.option_b}\nC. ${question.option_c}\nD. ${question.option_d}\nE. ${question.option_e}`
-    : ''
 
   return (
     <div className="animate-fade-in">
@@ -191,10 +201,10 @@ export default function QuestionsClient({ questions, attempts: initialAttempts, 
       {/* Filters */}
       <div className="bg-white rounded-2xl border border-border p-4 mb-6 flex flex-wrap gap-3">
         <FilterSelect label="Step" value={filterStep} options={STEPS} onChange={v => { setFilterStep(v); setCurrentIndex(0); setSelectedAnswer(null); setSubmitted(false); resetTranslations() }} />
-        <FilterSelect label="Dificuldade" value={filterDifficulty} options={DIFFICULTIES} onChange={v => { setFilterDifficulty(v); setCurrentIndex(0); setSelectedAnswer(null); setSubmitted(false); resetTranslations() }} />
-        <FilterSelect label="Especialidade" value={filterSubject} options={subjects} onChange={v => { setFilterSubject(v); setCurrentIndex(0); setSelectedAnswer(null); setSubmitted(false); resetTranslations() }} />
+        <FilterSelect label={t.questions.difficulty} value={filterDifficulty} options={DIFFICULTIES} onChange={v => { setFilterDifficulty(v); setCurrentIndex(0); setSelectedAnswer(null); setSubmitted(false); resetTranslations() }} />
+        <FilterSelect label={t.questions.specialtyFilter} value={filterSubject} options={subjects} onChange={v => { setFilterSubject(v); setCurrentIndex(0); setSelectedAnswer(null); setSubmitted(false); resetTranslations() }} />
         <div className="ml-auto text-sm text-muted-foreground self-center">
-          {filtered.length} questão{filtered.length !== 1 ? 'ões' : ''} encontrada{filtered.length !== 1 ? 's' : ''}
+          {filtered.length} {t.questions.questionsFound}
         </div>
       </div>
 
@@ -217,7 +227,9 @@ export default function QuestionsClient({ questions, attempts: initialAttempts, 
                     ? 'bg-correct-light text-correct'
                     : 'bg-incorrect-light text-incorrect'
                 }`}>
-                  {attempts.find(a => a.question_id === question.id)?.is_correct ? '✓ Respondida corretamente' : '✗ Respondida incorretamente'}
+                  {attempts.find(a => a.question_id === question.id)?.is_correct
+                    ? t.questions.answeredCorrectly
+                    : t.questions.answeredIncorrectly}
                 </span>
               )}
             </div>
@@ -237,18 +249,19 @@ export default function QuestionsClient({ questions, attempts: initialAttempts, 
               <p className="text-xs font-semibold text-blue-600 mb-2">{flag} {t.translate.translationLabel}</p>
               {tlLoading[stemKey]
                 ? <p className="text-sm text-muted-foreground animate-pulse">{t.translate.translating}</p>
-                : <p className="text-sm text-foreground leading-relaxed whitespace-pre-line">{translations[stemKey]}</p>
+                : <p className="text-sm text-foreground leading-relaxed whitespace-pre-line">{tl[stemKey]}</p>
               }
             </div>
           )}
 
-          {/* Translate stem+options button */}
+          {/* Translate all button */}
           {showTranslateBtn && (
             <div className="px-6 pb-4">
               <TranslateButton
                 flag={flag}
-                isVisible={!!visible[stemKey]} isLoading={!!tlLoading[stemKey]}
-                onClick={() => translate(stemKey, stemForTranslation)}
+                isVisible={allTranslVisible}
+                isLoading={!!tlLoading[stemKey] || anyOptLoading}
+                onClick={translateAll}
               />
             </div>
           )}
@@ -256,25 +269,35 @@ export default function QuestionsClient({ questions, attempts: initialAttempts, 
           {/* Options */}
           <div className="px-6 pb-6 space-y-3">
             {options.map(opt => (
-              <button
-                key={opt.key}
-                onClick={() => !submitted && setSelectedAnswer(opt.key)}
-                disabled={submitted}
-                className={`w-full text-left flex gap-3 items-start px-4 py-3 rounded-xl border-2 transition-all text-sm ${getOptionStyle(opt.key)}`}
-              >
-                <span className="font-bold min-w-[20px] mt-0.5">{opt.key}.</span>
-                <span>{opt.text}</span>
-                {submitted && opt.key === question.correct_answer && (
-                  <svg className="ml-auto mt-0.5 w-5 h-5 text-correct flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
+              <div key={opt.key}>
+                <button
+                  onClick={() => !submitted && setSelectedAnswer(opt.key)}
+                  disabled={submitted}
+                  className={`w-full text-left flex gap-3 items-start px-4 py-3 rounded-xl border-2 transition-all text-sm ${getOptionStyle(opt.key)}`}
+                >
+                  <span className="font-bold min-w-[20px] mt-0.5">{opt.key}.</span>
+                  <span>{opt.text}</span>
+                  {submitted && opt.key === question.correct_answer && (
+                    <svg className="ml-auto mt-0.5 w-5 h-5 text-correct flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                  {submitted && opt.key === selectedAnswer && opt.key !== question.correct_answer && (
+                    <svg className="ml-auto mt-0.5 w-5 h-5 text-incorrect flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  )}
+                </button>
+                {/* Inline option translation */}
+                {visible[optKey(opt.key)] && (
+                  <div className="mt-1 ml-8 px-3 py-2 rounded-lg bg-blue-50 border border-blue-100 text-xs">
+                    {tlLoading[optKey(opt.key)]
+                      ? <span className="text-muted-foreground animate-pulse">{t.translate.translating}</span>
+                      : <span className="text-blue-800">{flag} {tl[optKey(opt.key)]}</span>
+                    }
+                  </div>
                 )}
-                {submitted && opt.key === selectedAnswer && opt.key !== question.correct_answer && (
-                  <svg className="ml-auto mt-0.5 w-5 h-5 text-incorrect flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                )}
-              </button>
+              </div>
             ))}
           </div>
 
@@ -297,21 +320,24 @@ export default function QuestionsClient({ questions, attempts: initialAttempts, 
               {/* Explanation translation */}
               {visible[explanationKey] && (
                 <div className="mt-3 p-3 rounded-xl bg-blue-50 border border-blue-100">
-                  <p className="text-xs font-semibold text-blue-600 mb-1.5">{flag} Tradução da explicação — {langLabel}</p>
+                  <p className="text-xs font-semibold text-blue-600 mb-1.5">{flag} {t.translate.translationOf}</p>
                   {tlLoading[explanationKey]
-                    ? <p className="text-xs text-muted-foreground animate-pulse">Traduzindo...</p>
-                    : <p className="text-xs text-foreground leading-relaxed">{translations[explanationKey]}</p>
+                    ? <p className="text-xs text-muted-foreground animate-pulse">{t.translate.translating}</p>
+                    : <p className="text-xs text-foreground leading-relaxed">{tl[explanationKey]}</p>
                   }
                 </div>
               )}
 
-              <div className="mt-3">
-                <TranslateButton
-                  flag={flag}
-                  isVisible={!!visible[explanationKey]} isLoading={!!tlLoading[explanationKey]}
-                  onClick={() => translate(explanationKey, question.explanation)}
-                />
-              </div>
+              {showTranslateBtn && (
+                <div className="mt-3">
+                  <TranslateButton
+                    flag={flag}
+                    isVisible={!!visible[explanationKey]}
+                    isLoading={!!tlLoading[explanationKey]}
+                    onClick={() => translate(explanationKey, question.explanation)}
+                  />
+                </div>
+              )}
 
               <div className="mt-4 flex items-center justify-between gap-3 flex-wrap">
                 <button
@@ -325,16 +351,16 @@ export default function QuestionsClient({ questions, attempts: initialAttempts, 
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                     </svg>
                   ) : '➕'}
-                  Criar flashcard desta questão
+                  {t.questions.generateFlashcard}
                 </button>
                 {flashcardNotif === 'auto' && (
                   <span className="text-xs text-primary-700 bg-primary-50 px-3 py-1.5 rounded-lg border border-primary-200 animate-fade-in">
-                    📚 Flashcard criado automaticamente para revisão
+                    {t.questions.autoFlashcard}
                   </span>
                 )}
                 {flashcardNotif === 'manual' && (
                   <span className="text-xs text-correct bg-correct-light px-3 py-1.5 rounded-lg border border-correct/20 animate-fade-in">
-                    ✅ Flashcard salvo!
+                    {t.msg.flashcardSaved}
                   </span>
                 )}
               </div>
@@ -344,12 +370,12 @@ export default function QuestionsClient({ questions, attempts: initialAttempts, 
           {/* Notes */}
           {submitted && (
             <div className="mx-6 mb-6 border border-border rounded-xl p-4 bg-gray-50">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">📝 Minhas anotações</p>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">{t.questions.myNotes}</p>
               <textarea
                 value={noteText}
                 onChange={e => setNoteText(e.target.value)}
                 rows={3}
-                placeholder="Escreva suas anotações sobre esta questão..."
+                placeholder={t.questions.notePlaceholder}
                 className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none transition-all"
               />
               <div className="flex items-center gap-3 mt-2">
@@ -358,9 +384,9 @@ export default function QuestionsClient({ questions, attempts: initialAttempts, 
                   disabled={noteSaving}
                   className="px-4 py-1.5 bg-primary-700 text-white rounded-lg text-xs font-medium hover:bg-primary-800 disabled:opacity-40 transition-colors"
                 >
-                  {noteSaving ? 'Salvando...' : 'Salvar nota'}
+                  {noteSaving ? t.btn.saving : t.questions.saveNote}
                 </button>
-                {noteSaved && <span className="text-xs text-correct font-medium animate-fade-in">✓ Nota salva!</span>}
+                {noteSaved && <span className="text-xs text-correct font-medium animate-fade-in">{t.msg.noteSaved}</span>}
               </div>
             </div>
           )}
@@ -375,7 +401,7 @@ export default function QuestionsClient({ questions, attempts: initialAttempts, 
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
-              Anterior
+              {t.btn.prev}
             </button>
 
             {!submitted ? (
@@ -384,7 +410,7 @@ export default function QuestionsClient({ questions, attempts: initialAttempts, 
                 disabled={!selectedAnswer || loading}
                 className="px-6 py-2 bg-primary-700 text-white rounded-xl text-sm font-medium hover:bg-primary-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
               >
-                {loading ? 'Verificando...' : 'Confirmar resposta'}
+                {loading ? t.questions.verifying : t.questions.confirmAnswer}
               </button>
             ) : (
               <button
@@ -392,7 +418,7 @@ export default function QuestionsClient({ questions, attempts: initialAttempts, 
                 disabled={currentIndex === filtered.length - 1}
                 className="px-6 py-2 bg-primary-700 text-white rounded-xl text-sm font-medium hover:bg-primary-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
               >
-                Próxima questão →
+                {t.questions.nextQuestionBtn}
               </button>
             )}
 
@@ -401,7 +427,7 @@ export default function QuestionsClient({ questions, attempts: initialAttempts, 
               disabled={currentIndex === filtered.length - 1}
               className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground disabled:opacity-30 transition-colors"
             >
-              Próxima
+              {t.btn.next}
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
@@ -427,7 +453,7 @@ function TranslateButton({ flag, isVisible, isLoading, onClick }: {
         ? <svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
         : <span>{flag}</span>
       }
-      {isLoading ? t.translate.translating : isVisible ? t.translate.hide : `${flag} ${t.translate.translateTo.replace(/^🌐\s*/, '')}`}
+      {isLoading ? t.translate.translating : isVisible ? t.translate.hide : t.translate.translateTo}
     </button>
   )
 }
